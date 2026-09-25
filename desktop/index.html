@@ -25,10 +25,18 @@
     <div class="header-controls">
       <div id="fpsCounter" class="fps-counter">60 FPS</div>
       
-      <select id="equationPresetSelect">
-        <option value="cyber_core">Preset: Cyber Core Raymarcher</option>
-        <option value="mandala_harmonics">Preset: Mandala Harmonic Wave Field</option>
-        <option value="quantum_plasma">Preset: Quantum Fluid Plasma</option>
+      <select id="equationPresetSelect" style="max-width: 320px;">
+        <option value="cyber_core">1. Cyber Core Raymarcher (3D Morph & Tiling)</option>
+        <option value="mandala_harmonics">2. Mandala Harmonic Wave Field (Polar Fold)</option>
+        <option value="quantum_plasma">3. Quantum Fluid Plasma (Domain Warp)</option>
+        <option value="synthwave_horizon">4. Neon Synthwave Sun & Grid Horizon</option>
+        <option value="cosmic_wormhole">5. Hyperdimensional Cosmic Wormhole</option>
+        <option value="audio_matrix_cubes">6. 3D Audio Matrix Cube Grid</option>
+        <option value="volumetric_nebula">7. Volumetric Cosmic Nebula Cloud</option>
+        <option value="kaleido_lattice">8. Kaleidoscopic Crystal Lattice</option>
+        <option value="spectral_wave_grid">9. 3D Audio Frequency Terrain Mesh</option>
+        <option value="torus_knot_fractal">10. Raymarched Torus Knot Fractal</option>
+        <option value="particle_vortex">11. Cybernetic Particle Vortex Engine</option>
       </select>
 
       <button id="btnRecompile" class="btn-header" style="background: rgba(0, 240, 255, 0.15); border-color: var(--accent-cyan);">
@@ -80,7 +88,7 @@
 
           <div class="slider-row">
             <div class="slider-label-val">
-              <span class="slider-name">u_param5 (Shape Repetitiveness / Tiling Count)</span>
+              <span class="slider-name">u_param5 (Shape Repetitiveness / Tiling Matrix)</span>
               <span id="val_p5" class="slider-val">0.00</span>
             </div>
             <input type="range" id="slider_p5" min="0" max="1" step="0.01" value="0.00">
@@ -148,12 +156,13 @@
           </div>
         </div>
         
+        <!-- Code Art Parameters with High-Impact Controls -->
         <div class="param-group">
           <div class="param-group-title">Code Art Parameters (u_param 1-4)</div>
           
           <div class="slider-row">
             <div class="slider-label-val">
-              <span class="slider-name">u_param1 (Shape Morph / Symmetry)</span>
+              <span class="slider-name">u_param1 (Shape Morph / Geometry)</span>
               <span id="val_p1" class="slider-val">0.50</span>
             </div>
             <input type="range" id="slider_p1" min="0" max="1" step="0.01" value="0.50">
@@ -161,7 +170,7 @@
 
           <div class="slider-row">
             <div class="slider-label-val">
-              <span class="slider-name">u_param2 (Detail / Iterations)</span>
+              <span class="slider-name">u_param2 (Spike / Noise / Detail Density)</span>
               <span id="val_p2" class="slider-val">0.50</span>
             </div>
             <input type="range" id="slider_p2" min="0" max="1" step="0.01" value="0.50">
@@ -169,7 +178,7 @@
 
           <div class="slider-row">
             <div class="slider-label-val">
-              <span class="slider-name">u_param3 (Glow / Saturation)</span>
+              <span class="slider-name">u_param3 (Glow / Spectrum Shift)</span>
               <span id="val_p3" class="slider-val">0.50</span>
             </div>
             <input type="range" id="slider_p3" min="0" max="1" step="0.01" value="0.50">
@@ -177,7 +186,7 @@
 
           <div class="slider-row">
             <div class="slider-label-val">
-              <span class="slider-name">u_param4 (Rotation / Velocity)</span>
+              <span class="slider-name">u_param4 (Rotation / Orbital Speed)</span>
               <span id="val_p4" class="slider-val">0.50</span>
             </div>
             <input type="range" id="slider_p4" min="0" max="1" step="0.01" value="0.50">
