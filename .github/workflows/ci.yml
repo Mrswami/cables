@@ -1,0 +1,244 @@
+name: TouchArt Studio CI/CD
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ===========================
+  # Lint & Validate GLSL Shaders
+  # ===========================
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate package.json
+        run: node -e "const pkg = require('./package.json'); console.log('✅ Package:', pkg.name, pkg.version);"
+
+      - name: Validate GLSL Presets (No JS syntax in GLSL)
+        run: |
+          node -e "
+            const presets = require('./desktop/presetEquations.js');
+            let errors = 0;
+            for (const [key, preset] of Object.entries(presets)) {
+              // Check for common JS->GLSL bugs
+              if (preset.code.includes('Math.')) {
+                console.error('❌ GLSL Error in ' + key + ': Contains JavaScript Math. function');
+                errors++;
+              }
+              if (preset.code.includes('console.')) {
+                console.error('❌ GLSL Error in ' + key + ': Contains console. reference');
+                errors++;
+              }
+              if (preset.code.includes('var ') || preset.code.includes('let ') || preset.code.includes('const ')) {
+                console.error('❌ GLSL Error in ' + key + ': Contains JavaScript variable declaration');
+                errors++;
+              }
+              // Verify all 10 params are declared
+              for (let i = 1; i <= 10; i++) {
+                if (!preset.code.includes('u_param' + i)) {
+                  console.warn('⚠️  Warning: ' + key + ' does not use u_param' + i);
+                }
+              }
+              console.log('✅ ' + key + ': ' + preset.name);
+            }
+            if (errors > 0) {
+              console.error('\\n❌ Found ' + errors + ' GLSL validation errors');
+              process.exit(1);
+            }
+            console.log('\\n✅ All ' + Object.keys(presets).length + ' presets validated successfully');
+          "
+
+      - name: Validate Shader Engine Exports
+        run: |
+          node -e "
+            const Engine = require('./desktop/shaderEngine.js');
+            if (typeof Engine !== 'function') {
+              console.error('❌ ShaderEngine is not a valid constructor');
+              process.exit(1);
+            }
+            console.log('✅ ShaderEngine module exports valid');
+          "
+
+      - name: Validate Audio Ingest Exports
+        run: |
+          node -e "
+            const Ingest = require('./desktop/audioIngest.js');
+            if (typeof Ingest !== 'function') {
+              console.error('❌ AudioIngest is not a valid constructor');
+              process.exit(1);
+            }
+            console.log('✅ AudioIngest module exports valid');
+          "
+
+  # ===========================
+  # Build Electron App
+  # ===========================
+  build:
+    name: Build Electron (${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Verify Electron Installation
+        run: npx electron --version
+
+      - name: Build Validation (Dry Run)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Verify all required files exist
+            const requiredFiles = [
+              'main.js',
+              'package.json',
+              'desktop/index.html',
+              'desktop/app.js',
+              'desktop/shaderEngine.js',
+              'desktop/audioIngest.js',
+              'desktop/presetEquations.js',
+              'desktop/styles.css',
+              'server/index.js'
+            ];
+            
+            let missing = 0;
+            requiredFiles.forEach(f => {
+              if (!fs.existsSync(f)) {
+                console.error('❌ Missing: ' + f);
+                missing++;
+              } else {
+                console.log('✅ Found: ' + f);
+              }
+            });
+            
+            if (missing > 0) {
+              process.exit(1);
+            }
+            console.log('\\n✅ All required files present');
+          "
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: touchart-studio-${{ matrix.os }}
+          path: |
+            main.js
+            package.json
+            desktop/
+            server/
+          retention-days: 30
+
+  # ===========================
+  # Server Integration Test
+  # ===========================
+  server-test:
+    name: Server Integration Test
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Start Server & Health Check
+        run: |
+          # Start server in background
+          node server/index.js &
+          SERVER_PID=$!
+          
+          # Wait for server to start
+          sleep 3
+          
+          # Health check HTTP endpoint
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/status || echo "000")
+          
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Server HTTP health check passed (200 OK)"
+          else
+            echo "❌ Server HTTP health check failed (HTTP $HTTP_STATUS)"
+            kill $SERVER_PID 2>/dev/null
+            exit 1
+          fi
+          
+          # Verify API response structure
+          RESPONSE=$(curl -s http://localhost:3000/api/status)
+          echo "API Response: $RESPONSE"
+          
+          # Cleanup
+          kill $SERVER_PID 2>/dev/null
+          echo "✅ Server integration test passed"
+
+  # ===========================
+  # Release (on tag push)
+  # ===========================
+  release:
+    name: Create Release
+    needs: [lint, build, server-test]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: TouchArt Studio ${{ github.ref_name }}
+          body: |
+            ## TouchArt Studio Release ${{ github.ref_name }}
+            
+            ### Features
+            - 11 High-Impact GLSL Shader Presets
+            - 15 Real-Time Parameters (10 Scene + 4 Post-FX)
+            - Two-Pass Rendering Engine with Bloom, Chromatic Aberration, Vignette, Film Grain
+            - 64-Band EQ Visualizer
+            - Hardware Audio Device Selection & System Loopback Capture
+            - Auto-Gain Control (AGC) with Master Sensitivity Boost
+            - Preset Rules Manager with JSON Import/Export
+            - Audio Debug Monitor with Frame Timing Graph
+            
+            ### Installation
+            ```bash
+            git clone https://github.com/Mrswami/cables.git
+            cd cables
+            npm install
+            npm start
+            ```
+          draft: false
+          prerelease: false

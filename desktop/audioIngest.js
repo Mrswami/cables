@@ -18,13 +18,24 @@ class TouchArtAudioIngest {
     this.enableAGC = true; // Automatic Gain Control
     this.peakEnvelope = 0.1;
 
+    // Beat Detection & Rhythm Envelope Tracking
+    this.beatDecay = 0.0;
+    this.bassAvg = 0.05;
+    this.lastBeatTime = 0;
+    this.rhythmPhase = 0.0;
+    this.lastProcessTime = performance.now();
+
     this.metrics = {
       subBass: 0,
       bass: 0,
       mid: 0,
       treble: 0,
       rms: 0,
-      peak: 0
+      peak: 0,
+      beat: 0,
+      rhythmPhase: 0,
+      lfoSine: 0,
+      lfoSaw: 0
     };
 
     this.connectWebSocketSync();
@@ -165,31 +176,54 @@ class TouchArtAudioIngest {
     const dataArray = new Uint8Array(bufferLength);
     this.analyser.getByteFrequencyData(dataArray);
 
-    let subBassSum = 0, bassSum = 0, midSum = 0, trebleSum = 0, totalSum = 0;
+    const now = performance.now();
+    const dt = Math.min(0.05, Math.max(0.001, (now - this.lastProcessTime) / 1000.0));
+    this.lastProcessTime = now;
 
+    let subBassSum = 0, subBassCount = 0;
+    let bassSum = 0, bassCount = 0;
+    let midSum = 0, midCount = 0;
+    let trebleSum = 0, trebleCount = 0;
+    let totalSum = 0;
+
+    // Musical frequency bin ranges with high-frequency pre-emphasis
     for (let i = 0; i < bufferLength; i++) {
       const val = dataArray[i] / 255.0;
       totalSum += val;
 
-      if (i < 6) subBassSum += val;
-      else if (i < 24) bassSum += val;
-      else if (i < 100) midSum += val;
-      else trebleSum += val;
+      if (i <= 2) {
+        // Sub-Bass (0 - ~180 Hz)
+        subBassSum += val;
+        subBassCount++;
+      } else if (i <= 8) {
+        // Punchy Bass & Kicks (~180 - ~750 Hz)
+        bassSum += val;
+        bassCount++;
+      } else if (i <= 45) {
+        // Mids, Snares, Vocals (~750 - ~4200 Hz)
+        midSum += val;
+        midCount++;
+      } else if (i <= 180) {
+        // Treble & Hi-hats with progressive psychoacoustic boost
+        const preEmphasis = 1.0 + ((i - 45) / 135.0) * 1.8;
+        trebleSum += Math.min(1.0, val * preEmphasis);
+        trebleCount++;
+      }
     }
 
-    let rawSubBass = subBassSum / 6;
-    let rawBass = bassSum / 18;
-    let rawMid = midSum / 76;
-    let rawTreble = trebleSum / (bufferLength - 100);
+    let rawSubBass = subBassCount > 0 ? subBassSum / subBassCount : 0;
+    let rawBass = bassCount > 0 ? bassSum / bassCount : 0;
+    let rawMid = midCount > 0 ? midSum / midCount : 0;
+    let rawTreble = trebleCount > 0 ? trebleSum / trebleCount : 0;
     let rawRms = totalSum / bufferLength;
     let currentPeak = Math.max(rawSubBass, rawBass, rawMid, rawTreble);
 
     // Automatic Gain Control (AGC Peak Envelope Tracking)
     if (this.enableAGC) {
       if (currentPeak > this.peakEnvelope) {
-        this.peakEnvelope = currentPeak;
+        this.peakEnvelope = Math.min(1.0, currentPeak);
       } else {
-        this.peakEnvelope = Math.max(0.05, this.peakEnvelope * 0.995); // Decay envelope
+        this.peakEnvelope = Math.max(0.06, this.peakEnvelope * 0.993); // Musical decay envelope
       }
     } else {
       this.peakEnvelope = 0.5;
@@ -197,13 +231,31 @@ class TouchArtAudioIngest {
 
     const agcMultiplier = (1.0 / this.peakEnvelope) * this.masterGain;
 
-    // Highly sensitive & dynamic frequency metrics
-    this.metrics.subBass = Math.min(1.0, Math.pow(rawSubBass * agcMultiplier, 1.2));
-    this.metrics.bass = Math.min(1.0, Math.pow(rawBass * agcMultiplier, 1.2));
-    this.metrics.mid = Math.min(1.0, Math.pow(rawMid * agcMultiplier, 1.2));
-    this.metrics.treble = Math.min(1.0, Math.pow(rawTreble * agcMultiplier, 1.2));
+    // Highly responsive & expanded frequency metrics
+    this.metrics.subBass = Math.min(1.0, Math.pow(rawSubBass * agcMultiplier, 1.15));
+    this.metrics.bass = Math.min(1.0, Math.pow(rawBass * agcMultiplier, 1.15));
+    this.metrics.mid = Math.min(1.0, Math.pow(rawMid * agcMultiplier, 1.15));
+    this.metrics.treble = Math.min(1.0, Math.pow(rawTreble * agcMultiplier, 1.15));
     this.metrics.rms = Math.min(1.0, rawRms * agcMultiplier);
     this.metrics.peak = Math.max(this.metrics.subBass, this.metrics.bass, this.metrics.mid, this.metrics.treble);
+
+    // Transient Beat & Rhythm Detector
+    const instantBass = (rawSubBass * 1.4 + rawBass) * 0.5;
+    this.bassAvg = this.bassAvg * 0.94 + instantBass * 0.06;
+
+    this.beatDecay = Math.max(0.0, this.beatDecay * 0.88);
+    if (instantBass > this.bassAvg * 1.30 && instantBass > 0.03 && this.beatDecay < 0.35 && (now - this.lastBeatTime > 180)) {
+      this.beatDecay = 1.0;
+      this.lastBeatTime = now;
+    }
+    this.metrics.beat = this.beatDecay;
+
+    // Audio-Synced Rhythm Phase Clock & LFOs
+    const rhythmRate = 2.5 + this.metrics.bass * 4.0 + this.metrics.beat * 3.0;
+    this.rhythmPhase = (this.rhythmPhase + dt * rhythmRate) % (Math.PI * 2.0);
+    this.metrics.rhythmPhase = this.rhythmPhase;
+    this.metrics.lfoSine = Math.sin(this.rhythmPhase) * 0.5 + 0.5;
+    this.metrics.lfoSaw = (this.rhythmPhase / (Math.PI * 2.0));
 
     if (this.onMetricsCallback) {
       this.onMetricsCallback(this.metrics, dataArray);
@@ -225,6 +277,10 @@ class TouchArtAudioIngest {
     this.simulationStep++;
     const t = this.simulationStep * 0.05;
     const isBeat = this.simulationStep % 10 === 0;
+    if (isBeat) this.beatDecay = 1.0;
+    else this.beatDecay = Math.max(0.0, this.beatDecay * 0.85);
+
+    this.rhythmPhase = (this.simulationStep * 0.1) % (Math.PI * 2.0);
 
     this.metrics = {
       subBass: isBeat ? 0.98 : 0.25,
@@ -232,7 +288,11 @@ class TouchArtAudioIngest {
       mid: Math.sin(t * 1.5) * 0.4 + 0.5,
       treble: Math.cos(t * 3) * 0.4 + 0.4,
       rms: Math.sin(t) * 0.3 + 0.5,
-      peak: isBeat ? 0.98 : 0.5
+      peak: isBeat ? 0.98 : 0.5,
+      beat: this.beatDecay,
+      rhythmPhase: this.rhythmPhase,
+      lfoSine: Math.sin(this.rhythmPhase) * 0.5 + 0.5,
+      lfoSaw: (this.rhythmPhase / (Math.PI * 2.0))
     };
 
     if (this.onMetricsCallback) {

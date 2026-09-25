@@ -34,13 +34,17 @@
         <option value="audio_matrix_cubes">6. 3D Audio Matrix Cube Grid</option>
         <option value="volumetric_nebula">7. Volumetric Cosmic Nebula Cloud</option>
         <option value="kaleido_lattice">8. Kaleidoscopic Crystal Lattice</option>
-        <option value="spectral_wave_grid">9. 3D Audio Frequency Terrain Mesh</option>
+        <option value="spectral_wave_grid" selected>9. 3D Audio Frequency Terrain Mesh</option>
         <option value="torus_knot_fractal">10. Raymarched Torus Knot Fractal</option>
         <option value="particle_vortex">11. Cybernetic Particle Vortex Engine</option>
       </select>
 
       <button id="btnRecompile" class="btn-header" style="background: rgba(0, 240, 255, 0.15); border-color: var(--accent-cyan);">
         ⚡ Recompile GLSL
+      </button>
+
+      <button id="btnToggleDebug" class="btn-header" style="background: rgba(255, 183, 0, 0.15); border-color: var(--accent-amber);">
+        📊 Debug
       </button>
 
       <button id="btnFullscreen" class="btn-header">Fullscreen</button>
@@ -54,7 +58,7 @@
     <aside class="panel panel-left">
       <div class="panel-header">
         <span>Touch Node Parameters</span>
-        <span style="font-size: 0.7rem; color: var(--text-muted);">Modular Controls</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted);">15 Controls</span>
       </div>
       
       <div class="panel-content">
@@ -80,18 +84,351 @@
           </div>
         </div>
 
-        <!-- Repetitiveness & Modular Shape Duplication Group -->
-        <div class="param-group" style="border-color: rgba(255, 0, 127, 0.4); background: rgba(255, 0, 127, 0.05);">
-          <div class="param-group-title" style="color: var(--accent-pink);">
-            Shape Duplication & Repetitiveness
+        <!-- Audio Rhythm Slider Automation Rack (TouchDesigner Modulation Matrix) -->
+        <div class="param-group automation-rack" style="border-color: rgba(0, 240, 255, 0.45); background: rgba(0, 240, 255, 0.04);">
+          <div class="param-group-title" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center;">
+            <span>🎛️ Rhythm Slider Automation</span>
+            <button id="btnMasterAutomation" class="btn-auto-master active" title="Toggle all rhythm automations">
+              ⚡ ACTIVE
+            </button>
+          </div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 8px;">
+            Modulate sliders to live audio beats, kicks, snares & LFO rhythms.
+          </div>
+
+          <!-- Slot 1 -->
+          <div class="auto-slot" id="autoSlot_1">
+            <div class="auto-slot-header">
+              <label class="auto-slot-title">
+                <input type="checkbox" id="auto_en_1" checked>
+                <span class="auto-led active" id="auto_led_1"></span>
+                <span>Slot 1: Kick & Bass</span>
+              </label>
+              <span id="auto_val_1" class="auto-live-val">0.00</span>
+            </div>
+            <div class="auto-slot-controls">
+              <select id="auto_target_1" class="auto-select" title="Target Slider">
+                <option value="param1" selected>Target: u_param1 (Shape Morph / Height)</option>
+                <option value="param2">Target: u_param2 (Detail / Density)</option>
+                <option value="param3">Target: u_param3 (Glow / Color Shift)</option>
+                <option value="param4">Target: u_param4 (Speed / Rotation)</option>
+                <option value="param5">Target: u_param5 (Repetitiveness / Tiling)</option>
+                <option value="param6">Target: u_param6 (Zoom / Scale)</option>
+                <option value="param7">Target: u_param7 (Position Offset)</option>
+                <option value="param8">Target: u_param8 (Secondary Layer)</option>
+                <option value="param9">Target: u_param9 (Background / Depth)</option>
+                <option value="param10">Target: u_param10 (Time Warp Speed)</option>
+                <option value="bloom">Target: Post-FX Bloom</option>
+                <option value="chromatic">Target: Post-FX Chromatic</option>
+              </select>
+
+              <div class="auto-row-split">
+                <select id="auto_source_1" class="auto-select" title="Rhythm Source">
+                  <option value="bass" selected>💥 Kick / Sub-Bass</option>
+                  <option value="beat">⚡ Transient Beat Spike</option>
+                  <option value="mid">🥁 Mid-Range (Snares/Vocals)</option>
+                  <option value="treble">✨ Treble (Hi-Hats)</option>
+                  <option value="rms">🌊 RMS Energy</option>
+                  <option value="lfoSine">🔄 Audio-Synced LFO (Sine)</option>
+                  <option value="lfoSaw">⚡ Audio-Synced LFO (Saw)</option>
+                </select>
+
+                <select id="auto_mode_1" class="auto-select auto-mode-select" title="Modulation Mode">
+                  <option value="add" selected>➕ Add</option>
+                  <option value="duck">🔻 Duck</option>
+                  <option value="direct">🎯 Direct</option>
+                </select>
+              </div>
+
+              <div class="auto-depth-row">
+                <span class="auto-depth-label">Mod Depth:</span>
+                <input type="range" id="auto_depth_1" min="-1.0" max="1.0" step="0.05" value="0.70">
+                <span id="auto_depth_val_1" class="auto-depth-val">+70%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slot 2 -->
+          <div class="auto-slot" id="autoSlot_2">
+            <div class="auto-slot-header">
+              <label class="auto-slot-title">
+                <input type="checkbox" id="auto_en_2" checked>
+                <span class="auto-led active" id="auto_led_2"></span>
+                <span>Slot 2: Beat Transient</span>
+              </label>
+              <span id="auto_val_2" class="auto-live-val">0.00</span>
+            </div>
+            <div class="auto-slot-controls">
+              <select id="auto_target_2" class="auto-select" title="Target Slider">
+                <option value="param1">Target: u_param1 (Shape Morph / Height)</option>
+                <option value="param2">Target: u_param2 (Detail / Density)</option>
+                <option value="param3" selected>Target: u_param3 (Glow / Color Shift)</option>
+                <option value="param4">Target: u_param4 (Speed / Rotation)</option>
+                <option value="param5">Target: u_param5 (Repetitiveness / Tiling)</option>
+                <option value="param6">Target: u_param6 (Zoom / Scale)</option>
+                <option value="param7">Target: u_param7 (Position Offset)</option>
+                <option value="param8">Target: u_param8 (Secondary Layer)</option>
+                <option value="param9">Target: u_param9 (Background / Depth)</option>
+                <option value="param10">Target: u_param10 (Time Warp Speed)</option>
+                <option value="bloom">Target: Post-FX Bloom</option>
+                <option value="chromatic">Target: Post-FX Chromatic</option>
+              </select>
+
+              <div class="auto-row-split">
+                <select id="auto_source_2" class="auto-select" title="Rhythm Source">
+                  <option value="bass">💥 Kick / Sub-Bass</option>
+                  <option value="beat" selected>⚡ Transient Beat Spike</option>
+                  <option value="mid">🥁 Mid-Range (Snares/Vocals)</option>
+                  <option value="treble">✨ Treble (Hi-Hats)</option>
+                  <option value="rms">🌊 RMS Energy</option>
+                  <option value="lfoSine">🔄 Audio-Synced LFO (Sine)</option>
+                  <option value="lfoSaw">⚡ Audio-Synced LFO (Saw)</option>
+                </select>
+
+                <select id="auto_mode_2" class="auto-select auto-mode-select" title="Modulation Mode">
+                  <option value="add" selected>➕ Add</option>
+                  <option value="duck">🔻 Duck</option>
+                  <option value="direct">🎯 Direct</option>
+                </select>
+              </div>
+
+              <div class="auto-depth-row">
+                <span class="auto-depth-label">Mod Depth:</span>
+                <input type="range" id="auto_depth_2" min="-1.0" max="1.0" step="0.05" value="0.80">
+                <span id="auto_depth_val_2" class="auto-depth-val">+80%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slot 3 -->
+          <div class="auto-slot" id="autoSlot_3">
+            <div class="auto-slot-header">
+              <label class="auto-slot-title">
+                <input type="checkbox" id="auto_en_3">
+                <span class="auto-led" id="auto_led_3"></span>
+                <span>Slot 3: Mid / Rotation</span>
+              </label>
+              <span id="auto_val_3" class="auto-live-val">0.00</span>
+            </div>
+            <div class="auto-slot-controls">
+              <select id="auto_target_3" class="auto-select" title="Target Slider">
+                <option value="param1">Target: u_param1 (Shape Morph / Height)</option>
+                <option value="param2">Target: u_param2 (Detail / Density)</option>
+                <option value="param3">Target: u_param3 (Glow / Color Shift)</option>
+                <option value="param4" selected>Target: u_param4 (Speed / Rotation)</option>
+                <option value="param5">Target: u_param5 (Repetitiveness / Tiling)</option>
+                <option value="param6">Target: u_param6 (Zoom / Scale)</option>
+                <option value="param7">Target: u_param7 (Position Offset)</option>
+                <option value="param8">Target: u_param8 (Secondary Layer)</option>
+                <option value="param9">Target: u_param9 (Background / Depth)</option>
+                <option value="param10">Target: u_param10 (Time Warp Speed)</option>
+                <option value="bloom">Target: Post-FX Bloom</option>
+                <option value="chromatic">Target: Post-FX Chromatic</option>
+              </select>
+
+              <div class="auto-row-split">
+                <select id="auto_source_3" class="auto-select" title="Rhythm Source">
+                  <option value="bass">💥 Kick / Sub-Bass</option>
+                  <option value="beat">⚡ Transient Beat Spike</option>
+                  <option value="mid" selected>🥁 Mid-Range (Snares/Vocals)</option>
+                  <option value="treble">✨ Treble (Hi-Hats)</option>
+                  <option value="rms">🌊 RMS Energy</option>
+                  <option value="lfoSine">🔄 Audio-Synced LFO (Sine)</option>
+                  <option value="lfoSaw">⚡ Audio-Synced LFO (Saw)</option>
+                </select>
+
+                <select id="auto_mode_3" class="auto-select auto-mode-select" title="Modulation Mode">
+                  <option value="add" selected>➕ Add</option>
+                  <option value="duck">🔻 Duck</option>
+                  <option value="direct">🎯 Direct</option>
+                </select>
+              </div>
+
+              <div class="auto-depth-row">
+                <span class="auto-depth-label">Mod Depth:</span>
+                <input type="range" id="auto_depth_3" min="-1.0" max="1.0" step="0.05" value="0.50">
+                <span id="auto_depth_val_3" class="auto-depth-val">+50%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slot 4 -->
+          <div class="auto-slot" id="autoSlot_4">
+            <div class="auto-slot-header">
+              <label class="auto-slot-title">
+                <input type="checkbox" id="auto_en_4">
+                <span class="auto-led" id="auto_led_4"></span>
+                <span>Slot 4: Post-FX Bloom</span>
+              </label>
+              <span id="auto_val_4" class="auto-live-val">0.00</span>
+            </div>
+            <div class="auto-slot-controls">
+              <select id="auto_target_4" class="auto-select" title="Target Slider">
+                <option value="param1">Target: u_param1 (Shape Morph / Height)</option>
+                <option value="param2">Target: u_param2 (Detail / Density)</option>
+                <option value="param3">Target: u_param3 (Glow / Color Shift)</option>
+                <option value="param4">Target: u_param4 (Speed / Rotation)</option>
+                <option value="param5">Target: u_param5 (Repetitiveness / Tiling)</option>
+                <option value="param6">Target: u_param6 (Zoom / Scale)</option>
+                <option value="param7">Target: u_param7 (Position Offset)</option>
+                <option value="param8">Target: u_param8 (Secondary Layer)</option>
+                <option value="param9">Target: u_param9 (Background / Depth)</option>
+                <option value="param10">Target: u_param10 (Time Warp Speed)</option>
+                <option value="bloom" selected>Target: Post-FX Bloom</option>
+                <option value="chromatic">Target: Post-FX Chromatic</option>
+              </select>
+
+              <div class="auto-row-split">
+                <select id="auto_source_4" class="auto-select" title="Rhythm Source">
+                  <option value="bass">💥 Kick / Sub-Bass</option>
+                  <option value="beat" selected>⚡ Transient Beat Spike</option>
+                  <option value="mid">🥁 Mid-Range (Snares/Vocals)</option>
+                  <option value="treble">✨ Treble (Hi-Hats)</option>
+                  <option value="rms">🌊 RMS Energy</option>
+                  <option value="lfoSine">🔄 Audio-Synced LFO (Sine)</option>
+                  <option value="lfoSaw">⚡ Audio-Synced LFO (Saw)</option>
+                </select>
+
+                <select id="auto_mode_4" class="auto-select auto-mode-select" title="Modulation Mode">
+                  <option value="add" selected>➕ Add</option>
+                  <option value="duck">🔻 Duck</option>
+                  <option value="direct">🎯 Direct</option>
+                </select>
+              </div>
+
+              <div class="auto-depth-row">
+                <span class="auto-depth-label">Mod Depth:</span>
+                <input type="range" id="auto_depth_4" min="-1.0" max="1.0" step="0.05" value="0.75">
+                <span id="auto_depth_val_4" class="auto-depth-val">+75%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Core Geometry Parameters (u_param1 - u_param5) -->
+        <div class="param-group">
+          <div class="param-group-title" style="color: var(--accent-cyan);">🔷 Core Geometry & Shape</div>
+          
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param1 (Shape Morph)</span>
+              <span id="val_p1" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p1" min="0" max="1" step="0.01" value="0.50">
           </div>
 
           <div class="slider-row">
             <div class="slider-label-val">
-              <span class="slider-name">u_param5 (Shape Repetitiveness / Tiling Matrix)</span>
+              <span class="slider-name">u_param2 (Detail / Density)</span>
+              <span id="val_p2" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p2" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param3 (Glow / Color Shift)</span>
+              <span id="val_p3" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p3" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param4 (Rotation / Speed)</span>
+              <span id="val_p4" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p4" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param5 (Repetitiveness / Tiling)</span>
               <span id="val_p5" class="slider-val">0.00</span>
             </div>
             <input type="range" id="slider_p5" min="0" max="1" step="0.01" value="0.00">
+          </div>
+        </div>
+
+        <!-- Extended Parameters (u_param6 - u_param10) -->
+        <div class="param-group" style="border-color: rgba(255, 0, 127, 0.4); background: rgba(255, 0, 127, 0.05);">
+          <div class="param-group-title" style="color: var(--accent-pink);">🎯 Extended Modular Controls</div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param6 (Zoom / Scale)</span>
+              <span id="val_p6" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p6" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param7 (Position Offset)</span>
+              <span id="val_p7" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p7" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param8 (Secondary Layer)</span>
+              <span id="val_p8" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p8" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param9 (Background / Depth)</span>
+              <span id="val_p9" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p9" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param10 (Time Warp Speed)</span>
+              <span id="val_p10" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p10" min="0" max="1" step="0.01" value="0.50">
+          </div>
+        </div>
+
+        <!-- Post-FX Parameters -->
+        <div class="param-group" style="border-color: rgba(255, 183, 0, 0.4); background: rgba(255, 183, 0, 0.05);">
+          <div class="param-group-title" style="color: var(--accent-amber);">✨ Post-Processing FX</div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">Bloom / Glow Radius</span>
+              <span id="val_bloom" class="slider-val">0.00</span>
+            </div>
+            <input type="range" id="slider_bloom" min="0" max="1" step="0.01" value="0.00">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">Chromatic Aberration</span>
+              <span id="val_chromatic" class="slider-val">0.00</span>
+            </div>
+            <input type="range" id="slider_chromatic" min="0" max="1" step="0.01" value="0.00">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">Vignette Darkness</span>
+              <span id="val_vignette" class="slider-val">0.00</span>
+            </div>
+            <input type="range" id="slider_vignette" min="0" max="1" step="0.01" value="0.00">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">Film Grain Noise</span>
+              <span id="val_filmgrain" class="slider-val">0.00</span>
+            </div>
+            <input type="range" id="slider_filmgrain" min="0" max="1" step="0.01" value="0.00">
           </div>
         </div>
 
@@ -155,43 +492,6 @@
             <input type="range" id="slider_trebleGain" min="0" max="4" step="0.05" value="1.00">
           </div>
         </div>
-        
-        <!-- Code Art Parameters with High-Impact Controls -->
-        <div class="param-group">
-          <div class="param-group-title">Code Art Parameters (u_param 1-4)</div>
-          
-          <div class="slider-row">
-            <div class="slider-label-val">
-              <span class="slider-name">u_param1 (Shape Morph / Geometry)</span>
-              <span id="val_p1" class="slider-val">0.50</span>
-            </div>
-            <input type="range" id="slider_p1" min="0" max="1" step="0.01" value="0.50">
-          </div>
-
-          <div class="slider-row">
-            <div class="slider-label-val">
-              <span class="slider-name">u_param2 (Spike / Noise / Detail Density)</span>
-              <span id="val_p2" class="slider-val">0.50</span>
-            </div>
-            <input type="range" id="slider_p2" min="0" max="1" step="0.01" value="0.50">
-          </div>
-
-          <div class="slider-row">
-            <div class="slider-label-val">
-              <span class="slider-name">u_param3 (Glow / Spectrum Shift)</span>
-              <span id="val_p3" class="slider-val">0.50</span>
-            </div>
-            <input type="range" id="slider_p3" min="0" max="1" step="0.01" value="0.50">
-          </div>
-
-          <div class="slider-row">
-            <div class="slider-label-val">
-              <span class="slider-name">u_param4 (Rotation / Orbital Speed)</span>
-              <span id="val_p4" class="slider-val">0.50</span>
-            </div>
-            <input type="range" id="slider_p4" min="0" max="1" step="0.01" value="0.50">
-          </div>
-        </div>
 
       </div>
     </aside>
@@ -200,6 +500,20 @@
     <main class="panel panel-center">
       <canvas id="artCanvas"></canvas>
       <canvas id="spectrumOverlay"></canvas>
+
+      <!-- Audio Debug Overlay (toggled) -->
+      <div id="debugOverlay" class="debug-overlay" style="display: none;">
+        <div class="debug-title">🔍 Audio Debug Monitor</div>
+        <div class="debug-row"><span>Bass:</span><span id="dbg_bass">0.000</span></div>
+        <div class="debug-row"><span>Mid:</span><span id="dbg_mid">0.000</span></div>
+        <div class="debug-row"><span>Treble:</span><span id="dbg_treble">0.000</span></div>
+        <div class="debug-row"><span>RMS:</span><span id="dbg_rms">0.000</span></div>
+        <div class="debug-row"><span>Peak Envelope:</span><span id="dbg_peak">0.000</span></div>
+        <div class="debug-row"><span>AGC Multiplier:</span><span id="dbg_agc">1.000</span></div>
+        <div class="debug-row"><span>Active Device:</span><span id="dbg_device" style="font-size: 0.6rem;">—</span></div>
+        <div class="debug-row"><span>Frame Time:</span><span id="dbg_frametime">16.7ms</span></div>
+        <canvas id="debugFrameGraph" width="200" height="40"></canvas>
+      </div>
     </main>
 
     <!-- Right Panel: GLSL Code Art Equation Editor -->
@@ -215,20 +529,25 @@
       </div>
     </aside>
 
-    <!-- Bottom Bar: Audio Ingest Controller & Input Source Selection Dropdown -->
+    <!-- Bottom Bar: Audio Ingest Controller, EQ Visualizer & Input Source -->
     <footer class="panel panel-bottom">
-      <div style="display: flex; gap: 12px; align-items: center;">
-        <label for="audioSourceSelect" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-cyan);">Stream Mode:</label>
-        <select id="audioSourceSelect" style="background: rgba(0, 240, 255, 0.1); border-color: var(--accent-cyan); font-weight: 600;">
-          <option value="wasapi_mic">🎧 Hardware Audio Ingest (Headphones / Soundcard / Mic)</option>
-          <option value="system_loopback">🖥️ System Desktop Loopback (Live Audio Output)</option>
-          <option value="ableton_ws">🎛️ Ableton Live (OSC / WebSocket Stream)</option>
-          <option value="audacity_rest">🎙️ Audacity 4 (REST Sync API)</option>
-          <option value="test_signal">⚡ Test Signal Generator</option>
-          <option value="audio_file">📁 Upload Audio File Set</option>
+      <div style="display: flex; gap: 12px; align-items: center; flex-shrink: 0;">
+        <label for="audioSourceSelect" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-cyan);">Stream:</label>
+        <select id="audioSourceSelect" style="background: rgba(0, 240, 255, 0.1); border-color: var(--accent-cyan); font-weight: 600; max-width: 200px;">
+          <option value="wasapi_mic">🎧 Hardware Audio</option>
+          <option value="system_loopback">🖥️ System Loopback</option>
+          <option value="ableton_ws">🎛️ Ableton (OSC/WS)</option>
+          <option value="audacity_rest">🎙️ Audacity 4 (REST)</option>
+          <option value="test_signal">⚡ Test Signal</option>
+          <option value="audio_file">📁 Audio File</option>
         </select>
         
         <input type="file" id="audioFileInput" accept="audio/*" style="display: none;">
+      </div>
+
+      <!-- Real-Time EQ Visualizer (64-band) -->
+      <div class="eq-visualizer-container">
+        <canvas id="eqVisualizer"></canvas>
       </div>
 
       <!-- Real-Time Audio Band Meters -->

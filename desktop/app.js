@@ -1,11 +1,14 @@
 /**
  * Main TouchArt Studio Controller App
+ * Wires 15 parameters (u_param1-10 + 4 Post-FX), EQ Visualizer, Debug Overlay
  */
 
 document.addEventListener('DOMContentLoaded', () => {
   const artCanvas = document.getElementById('artCanvas');
   const spectrumOverlay = document.getElementById('spectrumOverlay');
   const specCtx = spectrumOverlay.getContext('2d');
+  const eqCanvas = document.getElementById('eqVisualizer');
+  const eqCtx = eqCanvas.getContext('2d');
   
   const codeEditor = document.getElementById('codeEditor');
   const errorLog = document.getElementById('errorLog');
@@ -13,11 +16,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const presetSelect = document.getElementById('equationPresetSelect');
   const btnRecompile = document.getElementById('btnRecompile');
   const btnFullscreen = document.getElementById('btnFullscreen');
+  const btnToggleDebug = document.getElementById('btnToggleDebug');
   const audioSourceSelect = document.getElementById('audioSourceSelect');
   const audioHardwareDeviceSelect = document.getElementById('audioHardwareDeviceSelect');
   const btnRefreshHardware = document.getElementById('btnRefreshHardware');
   const btnCaptureSystemAudio = document.getElementById('btnCaptureSystemAudio');
   const audioFileInput = document.getElementById('audioFileInput');
+
+  // Debug Overlay Elements
+  const debugOverlay = document.getElementById('debugOverlay');
+  const dbgBass = document.getElementById('dbg_bass');
+  const dbgMid = document.getElementById('dbg_mid');
+  const dbgTreble = document.getElementById('dbg_treble');
+  const dbgRms = document.getElementById('dbg_rms');
+  const dbgPeak = document.getElementById('dbg_peak');
+  const dbgAgc = document.getElementById('dbg_agc');
+  const dbgDevice = document.getElementById('dbg_device');
+  const dbgFrametime = document.getElementById('dbg_frametime');
+  const debugFrameGraph = document.getElementById('debugFrameGraph');
+  const debugGraphCtx = debugFrameGraph.getContext('2d');
+  let debugVisible = false;
+  let frameTimeSamples = [];
 
   // Meter Elements
   const meterBass = document.getElementById('meterBass');
@@ -34,28 +53,155 @@ document.addEventListener('DOMContentLoaded', () => {
   let midGain = 1.0;
   let trebleGain = 1.0;
 
+  // EQ Visualizer State
+  let eqFftData = null;
+  let eqSmoothedBars = new Float32Array(128).fill(0);
+
   // Initialize Shader Engine
   const shaderEngine = new TouchArtShaderEngine(artCanvas);
 
   // Initialize Audio Ingest
   const audioIngest = new TouchArtAudioIngest((metrics, fftData) => {
     // Apply gains
+    shaderEngine.audio.subBass = metrics.subBass || 0;
     shaderEngine.audio.bass = Math.min(1.0, metrics.bass * bassGain);
     shaderEngine.audio.mid = Math.min(1.0, metrics.mid * midGain);
     shaderEngine.audio.treble = Math.min(1.0, metrics.treble * trebleGain);
     shaderEngine.audio.rms = metrics.rms;
     shaderEngine.audio.peak = metrics.peak;
+    shaderEngine.audio.beat = metrics.beat || 0;
+    shaderEngine.audio.rhythm = metrics.rhythmPhase || 0;
 
     // Update Meter Bars
     meterBass.style.width = `${shaderEngine.audio.bass * 100}%`;
     meterMid.style.width = `${shaderEngine.audio.mid * 100}%`;
     meterTreble.style.width = `${shaderEngine.audio.treble * 100}%`;
 
-    // Render FFT Spectrum Overlay
+    // Store FFT data for EQ visualizer
     if (fftData) {
-      drawSpectrumOverlay(fftData);
+      eqFftData = fftData;
+    }
+
+    // Update Debug Overlay
+    if (debugVisible) {
+      dbgBass.textContent = shaderEngine.audio.bass.toFixed(3);
+      dbgMid.textContent = shaderEngine.audio.mid.toFixed(3);
+      dbgTreble.textContent = shaderEngine.audio.treble.toFixed(3);
+      dbgRms.textContent = metrics.rms.toFixed(3);
+      dbgPeak.textContent = audioIngest.peakEnvelope.toFixed(3);
+      const agcMult = (1.0 / audioIngest.peakEnvelope) * audioIngest.masterGain;
+      dbgAgc.textContent = agcMult.toFixed(2) + 'x';
     }
   });
+
+  // ==========================================
+  // Debug Overlay Toggle
+  // ==========================================
+  btnToggleDebug.addEventListener('click', () => {
+    debugVisible = !debugVisible;
+    debugOverlay.style.display = debugVisible ? 'block' : 'none';
+    btnToggleDebug.style.background = debugVisible 
+      ? 'rgba(255, 183, 0, 0.4)' 
+      : 'rgba(255, 183, 0, 0.15)';
+  });
+
+  // ==========================================
+  // EQ Visualizer Renderer (64-band gradient bars)
+  // ==========================================
+  function drawEQVisualizer() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = eqCanvas.clientWidth * dpr;
+    const h = eqCanvas.clientHeight * dpr;
+    if (eqCanvas.width !== w || eqCanvas.height !== h) {
+      eqCanvas.width = w;
+      eqCanvas.height = h;
+    }
+
+    eqCtx.clearRect(0, 0, w, h);
+
+    const bands = 64;
+    const barGap = 2 * dpr;
+    const barWidth = (w - barGap * (bands - 1)) / bands;
+
+    for (let i = 0; i < bands; i++) {
+      let rawVal = 0;
+      if (eqFftData && eqFftData.length > 0) {
+        // Map band to FFT bins (logarithmic-ish distribution)
+        const binIndex = Math.min(Math.floor(i * eqFftData.length / bands), eqFftData.length - 1);
+        rawVal = eqFftData[binIndex] / 255.0;
+      }
+
+      // Smooth the bars with decay
+      eqSmoothedBars[i] = Math.max(rawVal, eqSmoothedBars[i] * 0.85);
+      const val = eqSmoothedBars[i];
+      const barHeight = val * h * 0.95;
+
+      const x = i * (barWidth + barGap);
+      const y = h - barHeight;
+
+      // Gradient: cyan -> pink -> amber based on frequency
+      const hue = 180 - (i / bands) * 200; // cyan -> magenta
+      const saturation = 80 + val * 20;
+      const lightness = 40 + val * 30;
+      
+      // Create vertical gradient per bar
+      const gradient = eqCtx.createLinearGradient(x, h, x, y);
+      gradient.addColorStop(0, `hsla(${hue}, ${saturation}%, ${lightness * 0.5}%, 0.6)`);
+      gradient.addColorStop(0.5, `hsla(${hue}, ${saturation}%, ${lightness}%, 0.85)`);
+      gradient.addColorStop(1, `hsla(${hue + 20}, 100%, ${lightness + 15}%, 1.0)`);
+
+      eqCtx.fillStyle = gradient;
+      eqCtx.fillRect(x, y, barWidth, barHeight);
+
+      // Glow cap on top of each bar
+      if (barHeight > 2) {
+        eqCtx.fillStyle = `hsla(${hue + 20}, 100%, 80%, 0.9)`;
+        eqCtx.fillRect(x, y, barWidth, 2 * dpr);
+      }
+    }
+
+    // Center line
+    eqCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    eqCtx.lineWidth = 1;
+    eqCtx.beginPath();
+    eqCtx.moveTo(0, h * 0.5);
+    eqCtx.lineTo(w, h * 0.5);
+    eqCtx.stroke();
+  }
+
+  // ==========================================
+  // Debug Frame Time Graph
+  // ==========================================
+  function drawDebugFrameGraph(dt) {
+    if (!debugVisible) return;
+    frameTimeSamples.push(dt);
+    if (frameTimeSamples.length > 100) frameTimeSamples.shift();
+
+    const canvas = debugFrameGraph;
+    const ctx = debugGraphCtx;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // 16.67ms target line
+    const targetY = h - (16.67 / 50) * h;
+    ctx.strokeStyle = 'rgba(0, 255, 136, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, targetY);
+    ctx.lineTo(w, targetY);
+    ctx.stroke();
+
+    // Frame time bars
+    const barW = w / 100;
+    for (let i = 0; i < frameTimeSamples.length; i++) {
+      const ft = frameTimeSamples[i];
+      const barH = Math.min((ft / 50) * h, h);
+      const color = ft > 33 ? '#ff4757' : ft > 20 ? '#ffb700' : '#00ff88';
+      ctx.fillStyle = color;
+      ctx.fillRect(i * barW, h - barH, barW - 1, barH);
+    }
+  }
 
   // Wire Master Sensitivity Boost & AGC
   sliderMasterGain.addEventListener('input', (e) => {
@@ -73,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ok) {
       btnCaptureSystemAudio.style.background = 'linear-gradient(135deg, #00ff88, #00b359)';
       btnCaptureSystemAudio.textContent = '🖥️ System Audio Live Active';
+      if (debugVisible) dbgDevice.textContent = 'System Loopback';
     }
   });
 
@@ -99,6 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
   audioHardwareDeviceSelect.addEventListener('change', async (e) => {
     const deviceId = e.target.value;
     await audioIngest.startAudioDevice(deviceId || null);
+    if (debugVisible) {
+      const opt = audioHardwareDeviceSelect.options[audioHardwareDeviceSelect.selectedIndex];
+      dbgDevice.textContent = opt ? opt.textContent.substring(0, 30) : '—';
+    }
   });
 
   // ==========================================
@@ -143,18 +294,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const name = prompt('Enter a name for this set of slider rules:', 'My Preset Rules 1');
     if (!name) return;
 
-    const currentRule = {
-      p1: parseFloat(document.getElementById('slider_p1').value),
-      p2: parseFloat(document.getElementById('slider_p2').value),
-      p3: parseFloat(document.getElementById('slider_p3').value),
-      p4: parseFloat(document.getElementById('slider_p4').value),
-      p5: parseFloat(document.getElementById('slider_p5').value),
-      masterGain: parseFloat(sliderMasterGain.value),
-      bassGain: bassGain,
-      midGain: midGain,
-      trebleGain: trebleGain,
-      equationKey: presetSelect.value
-    };
+    const currentRule = {};
+    // Save all 10 params
+    for (let i = 1; i <= 10; i++) {
+      currentRule[`p${i}`] = parseFloat(document.getElementById(`slider_p${i}`).value);
+    }
+    // Save Post-FX
+    currentRule.bloom = parseFloat(document.getElementById('slider_bloom').value);
+    currentRule.chromatic = parseFloat(document.getElementById('slider_chromatic').value);
+    currentRule.vignette = parseFloat(document.getElementById('slider_vignette').value);
+    currentRule.filmgrain = parseFloat(document.getElementById('slider_filmgrain').value);
+    // Save Audio
+    currentRule.masterGain = parseFloat(sliderMasterGain.value);
+    currentRule.bassGain = bassGain;
+    currentRule.midGain = midGain;
+    currentRule.trebleGain = trebleGain;
+    currentRule.equationKey = presetSelect.value;
+    currentRule.masterAutomationActive = masterAutomationActive;
+    currentRule.automations = JSON.parse(JSON.stringify(automationSlots));
 
     const rules = getStoredRules();
     rules[name] = currentRule;
@@ -189,11 +346,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function applyRule(rule) {
-    if (rule.p1 !== undefined) setSlider('slider_p1', 'val_p1', 'param1', rule.p1);
-    if (rule.p2 !== undefined) setSlider('slider_p2', 'val_p2', 'param2', rule.p2);
-    if (rule.p3 !== undefined) setSlider('slider_p3', 'val_p3', 'param3', rule.p3);
-    if (rule.p4 !== undefined) setSlider('slider_p4', 'val_p4', 'param4', rule.p4);
-    if (rule.p5 !== undefined) setSlider('slider_p5', 'val_p5', 'param5', rule.p5);
+    // Apply all 10 param sliders
+    for (let i = 1; i <= 10; i++) {
+      const key = `p${i}`;
+      if (rule[key] !== undefined) {
+        setSlider(`slider_p${i}`, `val_p${i}`, `param${i}`, rule[key]);
+      }
+    }
+
+    // Apply Post-FX
+    if (rule.bloom !== undefined) setPostFx('slider_bloom', 'val_bloom', 'bloom', rule.bloom);
+    if (rule.chromatic !== undefined) setPostFx('slider_chromatic', 'val_chromatic', 'chromatic', rule.chromatic);
+    if (rule.vignette !== undefined) setPostFx('slider_vignette', 'val_vignette', 'vignette', rule.vignette);
+    if (rule.filmgrain !== undefined) setPostFx('slider_filmgrain', 'val_filmgrain', 'filmgrain', rule.filmgrain);
 
     if (rule.masterGain !== undefined) {
       sliderMasterGain.value = rule.masterGain;
@@ -215,6 +380,39 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('slider_trebleGain').value = trebleGain;
       document.getElementById('val_trebleGain').textContent = trebleGain.toFixed(2);
     }
+    if (rule.masterAutomationActive !== undefined) {
+      masterAutomationActive = rule.masterAutomationActive;
+      btnMasterAutomation.classList.toggle('active', masterAutomationActive);
+      btnMasterAutomation.textContent = masterAutomationActive ? '⚡ ACTIVE' : '⏸️ PAUSED';
+    }
+    if (rule.automations && Array.isArray(rule.automations)) {
+      rule.automations.forEach((savedSlot, idx) => {
+        if (idx < automationSlots.length) {
+          const slot = automationSlots[idx];
+          slot.enabled = savedSlot.enabled;
+          slot.target = savedSlot.target;
+          slot.source = savedSlot.source;
+          slot.mode = savedSlot.mode;
+          slot.depth = savedSlot.depth;
+          slot.baseValue = savedSlot.baseValue;
+
+          const slotNum = idx + 1;
+          const chk = document.getElementById(`auto_en_${slotNum}`);
+          const selTgt = document.getElementById(`auto_target_${slotNum}`);
+          const selSrc = document.getElementById(`auto_source_${slotNum}`);
+          const selMod = document.getElementById(`auto_mode_${slotNum}`);
+          const sldDep = document.getElementById(`auto_depth_${slotNum}`);
+          const valDep = document.getElementById(`auto_depth_val_${slotNum}`);
+
+          if (chk) chk.checked = slot.enabled;
+          if (selTgt) selTgt.value = slot.target;
+          if (selSrc) selSrc.value = slot.source;
+          if (selMod) selMod.value = slot.mode;
+          if (sldDep) sldDep.value = slot.depth;
+          if (valDep) valDep.textContent = `${slot.depth >= 0 ? '+' : ''}${Math.round(slot.depth * 100)}%`;
+        }
+      });
+    }
     if (rule.equationKey && PRESET_EQUATIONS[rule.equationKey]) {
       presetSelect.value = rule.equationKey;
       loadPreset(rule.equationKey);
@@ -228,6 +426,16 @@ document.addEventListener('DOMContentLoaded', () => {
       slider.value = value;
       valDisplay.textContent = value.toFixed(2);
       shaderEngine.params[paramKey] = value;
+    }
+  }
+
+  function setPostFx(sliderId, valId, fxKey, value) {
+    const slider = document.getElementById(sliderId);
+    const valDisplay = document.getElementById(valId);
+    if (slider && valDisplay) {
+      slider.value = value;
+      valDisplay.textContent = value.toFixed(2);
+      shaderEngine.postFx[fxKey] = value;
     }
   }
 
@@ -268,10 +476,172 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Load Initial Preset
-  loadPreset('cyber_core');
+  loadPreset('spectral_wave_grid');
 
-  // Slider Event Listeners (u_param 1-5)
-  for (let i = 1; i <= 5; i++) {
+  // ==========================================
+  // Audio Rhythm Slider Automation Engine
+  // ==========================================
+  let masterAutomationActive = true;
+  const btnMasterAutomation = document.getElementById('btnMasterAutomation');
+
+  const automationSlots = [
+    { id: 1, target: 'param1', source: 'bass', mode: 'add', depth: 0.70, baseValue: 0.35, enabled: true },
+    { id: 2, target: 'param3', source: 'beat', mode: 'add', depth: 0.80, baseValue: 0.20, enabled: true },
+    { id: 3, target: 'param4', source: 'mid', mode: 'add', depth: 0.50, baseValue: 0.50, enabled: false },
+    { id: 4, target: 'bloom', source: 'beat', mode: 'add', depth: 0.75, baseValue: 0.05, enabled: false }
+  ];
+
+  if (btnMasterAutomation) {
+    btnMasterAutomation.addEventListener('click', () => {
+      masterAutomationActive = !masterAutomationActive;
+      btnMasterAutomation.classList.toggle('active', masterAutomationActive);
+      btnMasterAutomation.textContent = masterAutomationActive ? '⚡ ACTIVE' : '⏸️ PAUSED';
+    });
+  }
+
+  // Wire Automation Slot UI Inputs
+  for (let i = 1; i <= 4; i++) {
+    const slotIndex = i - 1;
+    const slot = automationSlots[slotIndex];
+    const chk = document.getElementById(`auto_en_${i}`);
+    const selTgt = document.getElementById(`auto_target_${i}`);
+    const selSrc = document.getElementById(`auto_source_${i}`);
+    const selMod = document.getElementById(`auto_mode_${i}`);
+    const sldDep = document.getElementById(`auto_depth_${i}`);
+    const valDep = document.getElementById(`auto_depth_val_${i}`);
+
+    if (chk) {
+      chk.addEventListener('change', (e) => {
+        slot.enabled = e.target.checked;
+        const led = document.getElementById(`auto_led_${i}`);
+        if (!slot.enabled && led) led.className = 'auto-led';
+      });
+    }
+
+    if (selTgt) {
+      selTgt.addEventListener('change', (e) => {
+        slot.target = e.target.value;
+        if (slot.target.startsWith('param')) {
+          slot.baseValue = shaderEngine.params[slot.target] || 0.5;
+        } else if (shaderEngine.postFx[slot.target] !== undefined) {
+          slot.baseValue = shaderEngine.postFx[slot.target];
+        }
+      });
+    }
+
+    if (selSrc) {
+      selSrc.addEventListener('change', (e) => {
+        slot.source = e.target.value;
+      });
+    }
+
+    if (selMod) {
+      selMod.addEventListener('change', (e) => {
+        slot.mode = e.target.value;
+      });
+    }
+
+    if (sldDep) {
+      sldDep.addEventListener('input', (e) => {
+        slot.depth = parseFloat(e.target.value);
+        if (valDep) valDep.textContent = `${slot.depth >= 0 ? '+' : ''}${Math.round(slot.depth * 100)}%`;
+      });
+    }
+  }
+
+  function updateRhythmAutomations() {
+    const audio = shaderEngine.audio;
+    const automatedTargets = new Set();
+
+    for (let i = 1; i <= 4; i++) {
+      const slot = automationSlots[i - 1];
+      const led = document.getElementById(`auto_led_${i}`);
+      const valDisplay = document.getElementById(`auto_val_${i}`);
+
+      if (!masterAutomationActive || !slot.enabled) {
+        if (led) led.className = 'auto-led';
+        continue;
+      }
+
+      // Sample rhythm source
+      let signal = 0;
+      if (slot.source === 'bass') signal = audio.bass;
+      else if (slot.source === 'beat') signal = audio.beat;
+      else if (slot.source === 'mid') signal = audio.mid;
+      else if (slot.source === 'treble') signal = audio.treble;
+      else if (slot.source === 'rms') signal = audio.rms;
+      else if (slot.source === 'lfoSine') signal = audioIngest.metrics.lfoSine || (Math.sin(audioIngest.rhythmPhase) * 0.5 + 0.5);
+      else if (slot.source === 'lfoSaw') signal = audioIngest.metrics.lfoSaw || (audioIngest.rhythmPhase / (Math.PI * 2.0));
+
+      // Compute modulated value
+      let modVal = slot.baseValue;
+      if (slot.mode === 'add') {
+        modVal = slot.baseValue + signal * slot.depth;
+      } else if (slot.mode === 'duck') {
+        modVal = slot.baseValue * (1.0 - signal * Math.abs(slot.depth));
+      } else if (slot.mode === 'direct') {
+        modVal = signal * slot.depth;
+      }
+      modVal = Math.max(0.0, Math.min(1.0, modVal));
+
+      // Apply to target
+      if (slot.target.startsWith('param')) {
+        shaderEngine.params[slot.target] = modVal;
+        const pNum = slot.target.replace('param', '');
+        const sliderEl = document.getElementById(`slider_p${pNum}`);
+        const valEl = document.getElementById(`val_p${pNum}`);
+        if (sliderEl && valEl) {
+          sliderEl.value = modVal;
+          sliderEl.classList.add('slider-auto-active');
+          valEl.innerHTML = `${modVal.toFixed(2)} <span class="badge-auto">⚡ AUTO</span>`;
+        }
+      } else if (shaderEngine.postFx[slot.target] !== undefined) {
+        shaderEngine.postFx[slot.target] = modVal;
+        const sliderEl = document.getElementById(`slider_${slot.target}`);
+        const valEl = document.getElementById(`val_${slot.target}`);
+        if (sliderEl && valEl) {
+          sliderEl.value = modVal;
+          sliderEl.classList.add('slider-auto-active');
+          valEl.innerHTML = `${modVal.toFixed(2)} <span class="badge-auto">⚡ AUTO</span>`;
+        }
+      }
+
+      automatedTargets.add(slot.target);
+
+      if (valDisplay) valDisplay.textContent = modVal.toFixed(2);
+      if (led) {
+        led.className = 'auto-led' + (signal > 0.1 ? ' active' : '') + (audio.beat > 0.4 ? ' beat' : '');
+      }
+    }
+
+    // Clean up badges from non-automated sliders
+    for (let p = 1; p <= 10; p++) {
+      const key = `param${p}`;
+      if (!automatedTargets.has(key)) {
+        const sliderEl = document.getElementById(`slider_p${p}`);
+        const valEl = document.getElementById(`val_p${p}`);
+        if (sliderEl) sliderEl.classList.remove('slider-auto-active');
+        if (valEl && valEl.querySelector('.badge-auto')) {
+          valEl.textContent = parseFloat(sliderEl.value).toFixed(2);
+        }
+      }
+    }
+    ['bloom', 'chromatic', 'vignette', 'filmgrain'].forEach(fx => {
+      if (!automatedTargets.has(fx)) {
+        const sliderEl = document.getElementById(`slider_${fx}`);
+        const valEl = document.getElementById(`val_${fx}`);
+        if (sliderEl) sliderEl.classList.remove('slider-auto-active');
+        if (valEl && valEl.querySelector('.badge-auto')) {
+          valEl.textContent = parseFloat(sliderEl.value).toFixed(2);
+        }
+      }
+    });
+  }
+
+  // ==========================================
+  // Slider Event Listeners (u_param 1-10)
+  // ==========================================
+  for (let i = 1; i <= 10; i++) {
     const slider = document.getElementById(`slider_p${i}`);
     const valDisplay = document.getElementById(`val_p${i}`);
     if (slider) {
@@ -279,9 +649,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = parseFloat(e.target.value);
         valDisplay.textContent = val.toFixed(2);
         shaderEngine.params[`param${i}`] = val;
+        // Update base value for any automation targeting this param
+        automationSlots.forEach(s => {
+          if (s.target === `param${i}`) s.baseValue = val;
+        });
       });
     }
   }
+
+  // ==========================================
+  // Post-FX Slider Event Listeners
+  // ==========================================
+  const postFxSliders = [
+    { id: 'slider_bloom', valId: 'val_bloom', key: 'bloom' },
+    { id: 'slider_chromatic', valId: 'val_chromatic', key: 'chromatic' },
+    { id: 'slider_vignette', valId: 'val_vignette', key: 'vignette' },
+    { id: 'slider_filmgrain', valId: 'val_filmgrain', key: 'filmgrain' }
+  ];
+
+  postFxSliders.forEach(({ id, valId, key }) => {
+    const slider = document.getElementById(id);
+    const valDisplay = document.getElementById(valId);
+    if (slider) {
+      slider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        valDisplay.textContent = val.toFixed(2);
+        shaderEngine.postFx[key] = val;
+        // Update base value for any automation targeting this FX
+        automationSlots.forEach(s => {
+          if (s.target === key) s.baseValue = val;
+        });
+      });
+    }
+  });
 
   // Audio Gain Controls
   document.getElementById('slider_bassGain').addEventListener('input', (e) => {
@@ -372,7 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // FFT Spectrum Renderer
+  // FFT Spectrum Renderer (thin overlay on canvas)
   function drawSpectrumOverlay(fftData) {
     spectrumOverlay.width = spectrumOverlay.clientWidth * window.devicePixelRatio;
     spectrumOverlay.height = spectrumOverlay.clientHeight * window.devicePixelRatio;
@@ -384,15 +784,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     for (let i = 0; i < 64; i++) {
       const val = (fftData[i * 4] / 255) * h;
-      specCtx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+      specCtx.fillStyle = 'rgba(0, 240, 255, 0.3)';
       specCtx.fillRect(i * barWidth, h - val, barWidth - 1, val);
     }
   }
 
-  // Animation Loop
+  // ==========================================
+  // Main Animation Loop
+  // ==========================================
+  let lastFrameTime = performance.now();
+
   function animationLoop() {
+    const now = performance.now();
+    const dt = now - lastFrameTime;
+    lastFrameTime = now;
+
+    // Real-time Rhythm Slider Automation
+    updateRhythmAutomations();
+
     shaderEngine.render();
     fpsCounter.textContent = `${shaderEngine.currentFps} FPS`;
+
+    // Draw EQ Visualizer
+    drawEQVisualizer();
+
+    // Draw spectrum overlay if we have data
+    if (eqFftData) {
+      drawSpectrumOverlay(eqFftData);
+    }
+
+    // Debug frame timing
+    if (debugVisible) {
+      dbgFrametime.textContent = `${dt.toFixed(1)}ms`;
+      drawDebugFrameGraph(dt);
+    }
+
     requestAnimationFrame(animationLoop);
   }
 
