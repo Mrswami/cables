@@ -15,6 +15,7 @@ app.use(express.json());
 
 // Serve Cables ops script directly
 app.use('/cables-ops', express.static(path.join(__dirname, '../cables-ops')));
+app.use('/desktop', express.static(path.join(__dirname, '../desktop')));
 
 const server = http.createServer(app);
 

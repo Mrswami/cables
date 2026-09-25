@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TouchArt Studio - Code Art Engine & Audio Ingestor</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top App Navigation & Status Header -->
+  <header class="app-header">
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+      TouchArt Studio (TouchDesigner Free Alternative)
+    </div>
+
+    <div class="header-controls">
+      <div id="fpsCounter" class="fps-counter">60 FPS</div>
+      
+      <select id="equationPresetSelect">
+        <option value="cyber_core">Preset: Cyber Core Raymarcher</option>
+        <option value="mandala_harmonics">Preset: Mandala Harmonic Wave Field</option>
+        <option value="quantum_plasma">Preset: Quantum Fluid Plasma</option>
+      </select>
+
+      <button id="btnRecompile" class="btn-header" style="background: rgba(0, 240, 255, 0.15); border-color: var(--accent-cyan);">
+        ⚡ Recompile GLSL
+      </button>
+
+      <button id="btnFullscreen" class="btn-header">Fullscreen</button>
+    </div>
+  </header>
+
+  <!-- Workspace Grid Layout -->
+  <div class="workspace-grid">
+    
+    <!-- Left Panel: TouchDesigner-Style Parameters -->
+    <aside class="panel panel-left">
+      <div class="panel-header">
+        <span>Touch Node Parameters</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted);">Math & Modulators</span>
+      </div>
+      
+      <div class="panel-content">
+        
+        <div class="param-group">
+          <div class="param-group-title">Code Art Parameters (u_param 1-4)</div>
+          
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param1 (Shape Morph / Symmetry)</span>
+              <span id="val_p1" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p1" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param2 (Detail / Iterations)</span>
+              <span id="val_p2" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p2" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param3 (Glow / Saturation)</span>
+              <span id="val_p3" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p3" min="0" max="1" step="0.01" value="0.50">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param4 (Rotation / Velocity)</span>
+              <span id="val_p4" class="slider-val">0.50</span>
+            </div>
+            <input type="range" id="slider_p4" min="0" max="1" step="0.01" value="0.50">
+          </div>
+        </div>
+
+        <div class="param-group">
+          <div class="param-group-title">Audio Reactivity Sensitivity</div>
+          
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">Sub-Bass & Kick Gain</span>
+              <span id="val_bassGain" class="slider-val">1.00</span>
+            </div>
+            <input type="range" id="slider_bassGain" min="0" max="3" step="0.05" value="1.00">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">Mid-Range / Vocal Gain</span>
+              <span id="val_midGain" class="slider-val">1.00</span>
+            </div>
+            <input type="range" id="slider_midGain" min="0" max="3" step="0.05" value="1.00">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">Treble / Hi-Hat Gain</span>
+              <span id="val_trebleGain" class="slider-val">1.00</span>
+            </div>
+            <input type="range" id="slider_trebleGain" min="0" max="3" step="0.05" value="1.00">
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Center Panel: Real-Time WebGL Shader Viewport -->
+    <main class="panel panel-center">
+      <canvas id="artCanvas"></canvas>
+      <canvas id="spectrumOverlay"></canvas>
+    </main>
+
+    <!-- Right Panel: GLSL Code Art Equation Editor -->
+    <aside class="panel panel-right">
+      <div class="panel-header">
+        <span>GLSL Equation Code Editor</span>
+        <span style="font-size: 0.7rem; color: var(--accent-green);">Live Edit</span>
+      </div>
+
+      <div class="panel-content">
+        <textarea id="codeEditor" spellcheck="false"></textarea>
+        <div id="errorLog" class="error-log"></div>
+      </div>
+    </aside>
+
+    <!-- Bottom Bar: Audio Ingest Controller -->
+    <footer class="panel panel-bottom">
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button id="btnStartMic" class="btn-header" style="background: linear-gradient(135deg, #00f0ff, #0088ff); color: #000;">
+          🎤 Enable Audio Ingest (WASAPI/Mic)
+        </button>
+
+        <button id="btnToggleSim" class="btn-header" style="background: rgba(255, 0, 127, 0.2); border-color: var(--accent-pink);">
+          Toggle Test Signal
+        </button>
+      </div>
+
+      <!-- Real-Time Audio Band Meters -->
+      <div class="audio-meters-row">
+        <div class="mini-meter">
+          <div class="mini-meter-label">Bass</div>
+          <div class="mini-meter-bar-bg"><div id="meterBass" class="mini-meter-bar-fill"></div></div>
+        </div>
+
+        <div class="mini-meter">
+          <div class="mini-meter-label">Mid</div>
+          <div class="mini-meter-bar-bg"><div id="meterMid" class="mini-meter-bar-fill" style="background: var(--accent-pink);"></div></div>
+        </div>
+
+        <div class="mini-meter">
+          <div class="mini-meter-label">Treble</div>
+          <div class="mini-meter-bar-bg"><div id="meterTreble" class="mini-meter-bar-fill" style="background: var(--accent-amber);"></div></div>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="presetEquations.js"></script>
+  <script src="shaderEngine.js"></script>
+  <script src="audioIngest.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

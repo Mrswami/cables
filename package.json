@@ -1,28 +1,33 @@
 {
-  "name": "cables-live-sync-toolkit",
+  "name": "cables-touch-art-studio",
   "version": "1.0.0",
-  "description": "Live DAW & Audio Input Sync Toolkit for Cables.gl (Ableton Live & Audacity 4 direct live sync)",
-  "main": "server/index.js",
+  "description": "High-Performance Desktop Audio Ingestor & Code Art Visualizer (TouchDesigner Free Alternative)",
+  "main": "main.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "node server/index.js",
+    "start": "electron .",
+    "web": "node server/index.js",
+    "dev": "electron .",
     "test": "node server/test-signal.js"
   },
   "keywords": [
     "cables.gl",
-    "visualizer",
-    "ableton-live",
-    "audacity",
-    "web-audio",
+    "touchdesigner-alternative",
+    "code-art",
+    "shader-visualizer",
     "audio-reactive",
-    "osc",
-    "midi",
-    "websockets"
+    "glsl",
+    "webgl2",
+    "webgpu",
+    "wasapi",
+    "electron"
   ],
   "author": "Mrswami",
   "license": "MIT",
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "electron": "^25.0.0"
   }
 }
