@@ -1,0 +1,35 @@
+{
+  "title": "Cables.gl Live Audio Reactivity Patch Template",
+  "description": "Pre-configured Cables.gl patch structure with Web Audio & WebSocket live DAW parameters",
+  "version": "1.0",
+  "cablesVersion": "standalone-web",
+  "nodes": [
+    {
+      "id": "node_main_loop",
+      "op": "Ops.Gl.MainLoop",
+      "ports": [{ "name": "render", "type": "function" }]
+    },
+    {
+      "id": "node_audio_bridge",
+      "op": "Ops.Extension.LiveAudioSyncBridge",
+      "params": {
+        "wsUrl": "ws://localhost:8080",
+        "autoConnect": true
+      },
+      "outputs": [
+        { "name": "audio_bass", "type": "number" },
+        { "name": "audio_treble", "type": "number" },
+        { "name": "bpm", "type": "number" },
+        { "name": "stems_drums", "type": "number" }
+      ]
+    },
+    {
+      "id": "node_cube_mesh",
+      "op": "Ops.Gl.Meshes.Cube",
+      "inputs": [
+        { "name": "sizeX", "link": "node_audio_bridge.outputs.audio_bass" },
+        { "name": "sizeY", "link": "node_audio_bridge.outputs.audio_treble" }
+      ]
+    }
+  ]
+}

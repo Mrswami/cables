@@ -1,0 +1,21 @@
+{
+  "title": "Audacity 4 Live Input & Stem Marker Profile for Cables.gl",
+  "audacityVersion": "4.0+",
+  "inputMode": "WASAPI / ASIO Direct Loopback & Live REST Stream",
+  "endpoint": "http://localhost:3000/api/audacity/sync",
+  "timelineSync": {
+    "sampleRate": 48000,
+    "bufferSize": 512,
+    "timecodeFormat": "HH:MM:SS:FF"
+  },
+  "stemMapping": {
+    "track1": "stems.drums",
+    "track2": "stems.bass",
+    "track3": "stems.vocals",
+    "track4": "stems.synths"
+  },
+  "markerExportSync": {
+    "enableLabels": true,
+    "triggerOnMarkerHit": true
+  }
+}

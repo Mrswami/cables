@@ -1,0 +1,33 @@
+{
+  "title": "Ableton Live 11/12 OSC & MIDI Sync Profile for Cables.gl",
+  "osc": {
+    "serverIp": "127.0.0.1",
+    "port": 9000,
+    "addressMap": {
+      "/live/tempo": "bpm",
+      "/live/play": "isPlaying=true",
+      "/live/stop": "isPlaying=false",
+      "/live/song/time": "positionSeconds",
+      "/live/track/1/volume": "stems.drums",
+      "/live/track/2/volume": "stems.bass",
+      "/live/track/3/volume": "stems.vocals",
+      "/live/track/4/volume": "stems.synths"
+    }
+  },
+  "midi": {
+    "clockSync": true,
+    "ccMappings": {
+      "CC_1": "audio.subBass",
+      "CC_2": "audio.bass",
+      "CC_3": "audio.mid",
+      "CC_4": "audio.treble",
+      "CC_7": "masterVolume",
+      "CC_10": "pan"
+    }
+  },
+  "recommendedM4LDevices": [
+    "LiveOSC2",
+    "OSCulator-Ableton-Bridge",
+    "Ableton-Link-to-OSC"
+  ]
+}

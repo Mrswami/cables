@@ -1,0 +1,28 @@
+{
+  "name": "cables-live-sync-toolkit",
+  "version": "1.0.0",
+  "description": "Live DAW & Audio Input Sync Toolkit for Cables.gl (Ableton Live & Audacity 4 direct live sync)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "test": "node server/test-signal.js"
+  },
+  "keywords": [
+    "cables.gl",
+    "visualizer",
+    "ableton-live",
+    "audacity",
+    "web-audio",
+    "audio-reactive",
+    "osc",
+    "midi",
+    "websockets"
+  ],
+  "author": "Mrswami",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
+  }
+}
