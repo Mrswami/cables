@@ -13,8 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const presetSelect = document.getElementById('equationPresetSelect');
   const btnRecompile = document.getElementById('btnRecompile');
   const btnFullscreen = document.getElementById('btnFullscreen');
-  const btnStartMic = document.getElementById('btnStartMic');
-  const btnToggleSim = document.getElementById('btnToggleSim');
+  const audioSourceSelect = document.getElementById('audioSourceSelect');
+  const audioFileInput = document.getElementById('audioFileInput');
 
   // Meter Elements
   const meterBass = document.getElementById('meterBass');
@@ -52,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load Initial Preset
   loadPreset('cyber_core');
 
-  // Slider Event Listeners
-  for (let i = 1; i <= 4; i++) {
+  // Slider Event Listeners (u_param 1-5)
+  for (let i = 1; i <= 5; i++) {
     const slider = document.getElementById(`slider_p${i}`);
     const valDisplay = document.getElementById(`val_p${i}`);
     if (slider) {
@@ -77,6 +77,41 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('slider_trebleGain').addEventListener('input', (e) => {
     trebleGain = parseFloat(e.target.value);
     document.getElementById('val_trebleGain').textContent = trebleGain.toFixed(2);
+  });
+
+  // Input Source Dropdown Switcher
+  audioSourceSelect.addEventListener('change', async (e) => {
+    const val = e.target.value;
+    audioIngest.toggleSimulation(false);
+
+    if (val === 'wasapi_mic') {
+      await audioIngest.startMicrophone();
+    } else if (val === 'test_signal') {
+      audioIngest.toggleSimulation(true);
+    } else if (val === 'audio_file') {
+      audioFileInput.click();
+    } else if (val === 'ableton_ws' || val === 'audacity_rest') {
+      audioIngest.connectWebSocketSync();
+    }
+  });
+
+  // Audio File Upload Handler
+  audioFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    audioIngest.initAudioContext();
+    audioIngest.isSimulating = false;
+
+    const url = URL.createObjectURL(file);
+    const audioEl = new Audio(url);
+    audioEl.controls = true;
+    audioEl.play();
+
+    const fileNode = audioIngest.audioCtx.createMediaElementSource(audioEl);
+    fileNode.connect(audioIngest.analyser);
+    audioIngest.analyser.connect(audioIngest.audioCtx.destination);
+    audioIngest.processAudioLoop();
   });
 
   // Preset Selection
@@ -114,23 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       document.exitFullscreen();
     }
-  });
-
-  // Audio Buttons
-  btnStartMic.addEventListener('click', async () => {
-    const ok = await audioIngest.startMicrophone();
-    if (ok) {
-      btnStartMic.style.background = 'linear-gradient(135deg, #00ff88, #00b359)';
-      btnStartMic.textContent = '🎤 WASAPI / Mic Active';
-    }
-  });
-
-  let isSimulating = false;
-  btnToggleSim.addEventListener('click', () => {
-    isSimulating = !isSimulating;
-    audioIngest.toggleSimulation(isSimulating);
-    btnToggleSim.style.background = isSimulating ? 'rgba(255, 183, 0, 0.4)' : 'rgba(255, 0, 127, 0.2)';
-    btnToggleSim.textContent = isSimulating ? 'Stop Test Signal' : 'Toggle Test Signal';
   });
 
   // FFT Spectrum Renderer

@@ -46,10 +46,25 @@
     <aside class="panel panel-left">
       <div class="panel-header">
         <span>Touch Node Parameters</span>
-        <span style="font-size: 0.7rem; color: var(--text-muted);">Math & Modulators</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted);">Modular Controls</span>
       </div>
       
       <div class="panel-content">
+
+        <!-- Repetitiveness & Modular Shape Duplication Group -->
+        <div class="param-group" style="border-color: rgba(255, 0, 127, 0.4); background: rgba(255, 0, 127, 0.05);">
+          <div class="param-group-title" style="color: var(--accent-pink);">
+            Shape Duplication & Repetitiveness
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label-val">
+              <span class="slider-name">u_param5 (Shape Repetitiveness / Tiling Count)</span>
+              <span id="val_p5" class="slider-val">0.00</span>
+            </div>
+            <input type="range" id="slider_p5" min="0" max="1" step="0.01" value="0.00">
+          </div>
+        </div>
         
         <div class="param-group">
           <div class="param-group-title">Code Art Parameters (u_param 1-4)</div>
@@ -137,16 +152,19 @@
       </div>
     </aside>
 
-    <!-- Bottom Bar: Audio Ingest Controller -->
+    <!-- Bottom Bar: Audio Ingest Controller & Input Source Selection Dropdown -->
     <footer class="panel panel-bottom">
-      <div style="display: flex; gap: 10px; align-items: center;">
-        <button id="btnStartMic" class="btn-header" style="background: linear-gradient(135deg, #00f0ff, #0088ff); color: #000;">
-          🎤 Enable Audio Ingest (WASAPI/Mic)
-        </button>
-
-        <button id="btnToggleSim" class="btn-header" style="background: rgba(255, 0, 127, 0.2); border-color: var(--accent-pink);">
-          Toggle Test Signal
-        </button>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <label for="audioSourceSelect" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-cyan);">Input Source:</label>
+        <select id="audioSourceSelect" style="background: rgba(0, 240, 255, 0.1); border-color: var(--accent-cyan); font-weight: 600;">
+          <option value="wasapi_mic">🎤 WASAPI System Audio / Line-In Mic</option>
+          <option value="ableton_ws">🎛️ Ableton Live (OSC / WebSocket Stream)</option>
+          <option value="audacity_rest">🎙️ Audacity 4 (REST Sync API)</option>
+          <option value="test_signal">⚡ Test Signal Generator</option>
+          <option value="audio_file">📁 Upload Audio File Set</option>
+        </select>
+        
+        <input type="file" id="audioFileInput" accept="audio/*" style="display: none;">
       </div>
 
       <!-- Real-Time Audio Band Meters -->

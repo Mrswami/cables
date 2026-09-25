@@ -4,14 +4,15 @@
 
 const PRESET_EQUATIONS = {
   cyber_core: {
-    name: "Cyber Core Raymarcher",
+    name: "Cyber Core Raymarcher (with Shape Duplication)",
     author: "Mrswami",
-    description: "Audio-reactive 3D Raymarched geometry with pulse morphing and frequency displacement.",
+    description: "Audio-reactive 3D Raymarched geometry with modular shape repetition and duplicates.",
     code: `// Cyber Core Raymarcher
 // u_param1: Morph Shape Complexity
 // u_param2: Raymarching Iteration Detail
 // u_param3: Glow Intensity
 // u_param4: Rotation Speed
+// u_param5: Repetitiveness & Duplicate Grid Count (1x1 to 6x6 Matrix)
 
 precision highp float;
 uniform vec2 u_resolution;
@@ -23,6 +24,7 @@ uniform float u_param1;
 uniform float u_param2;
 uniform float u_param3;
 uniform float u_param4;
+uniform float u_param5;
 
 mat2 rotate2D(float angle) {
     float s = sin(angle), c = cos(angle);
@@ -31,14 +33,21 @@ mat2 rotate2D(float angle) {
 
 float map(vec3 p) {
     vec3 q = p;
+
+    // Modular Repetitiveness / Shape Duplicate Tiling
+    if (u_param5 > 0.05) {
+        float spacing = 2.5 - u_param5 * 1.5;
+        q.xy = mod(q.xy + spacing * 0.5, spacing) - spacing * 0.5;
+    }
+
     q.xz *= rotate2D(u_time * (0.2 + u_param4 * 0.8));
     q.xy *= rotate2D(u_time * 0.3);
     
     // Audio Reactive Pulsing Sphere + Box Morph
-    float r = 1.0 + u_audio_bass * 0.8 + sin(q.y * (2.0 + u_param1 * 8.0)) * 0.2;
+    float r = (0.6 + u_param5 * 0.3) + u_audio_bass * 0.6 + sin(q.y * (2.0 + u_param1 * 8.0)) * 0.15;
     float sphere = length(q) - r;
     
-    vec3 b = abs(q) - vec3(0.8 + u_audio_mid * 0.5);
+    vec3 b = abs(q) - vec3(0.5 + u_audio_mid * 0.4);
     float box = length(max(b, 0.0)) + min(max(b.x, max(b.y, b.z)), 0.0);
     
     return mix(sphere, box, 0.5 + 0.5 * sin(u_time + u_audio_treble * 3.0));
@@ -83,14 +92,15 @@ void main() {
   },
 
   mandala_harmonics: {
-    name: "Mandala Harmonic Wave Field",
+    name: "Mandala Harmonic Wave Field (with Duplicate Matrix)",
     author: "Mrswami",
-    description: "Symmetric polar wave equation reacting to mid and treble frequencies.",
+    description: "Symmetric polar wave equation reacting to mid and treble frequencies with grid duplications.",
     code: `// Mandala Harmonic Wave Field
 // u_param1: Symmetry Fold Count
 // u_param2: Ripple Frequency
 // u_param3: Color Shift Speed
 // u_param4: Zoom / Distortion
+// u_param5: Repetitiveness & Modular Tiling Duplicates
 
 precision highp float;
 uniform vec2 u_resolution;
@@ -102,12 +112,19 @@ uniform float u_param1;
 uniform float u_param2;
 uniform float u_param3;
 uniform float u_param4;
+uniform float u_param5;
 
 #define PI 3.14159265359
 
 void main() {
     vec2 st = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / min(u_resolution.x, u_resolution.y);
     st *= 2.0 + u_param4 * 4.0;
+
+    // Modular Repetitiveness (Grid Duplication)
+    if (u_param5 > 0.05) {
+        float repCount = 1.0 + floor(u_param5 * 7.0);
+        st = fract(st * repCount * 0.5) - 0.5;
+    }
     
     float r = length(st);
     float a = atan(st.y, st.x);
@@ -131,14 +148,15 @@ void main() {
   },
 
   quantum_plasma: {
-    name: "Quantum Fluid Plasma",
+    name: "Quantum Fluid Plasma (Modular Grid Repetition)",
     author: "Mrswami",
-    description: "Continuous domain warping fluid with audio turbulence.",
+    description: "Continuous domain warping fluid with audio turbulence and shape matrix tiling.",
     code: `// Quantum Fluid Plasma
 // u_param1: Turbulence Scaling
 // u_param2: Warp Iterations
 // u_param3: Color Saturation
 // u_param4: Flow Velocity
+// u_param5: Repetitiveness & Matrix Duplication
 
 precision highp float;
 uniform vec2 u_resolution;
@@ -150,9 +168,15 @@ uniform float u_param1;
 uniform float u_param2;
 uniform float u_param3;
 uniform float u_param4;
+uniform float u_param5;
 
 void main() {
     vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
+
+    if (u_param5 > 0.05) {
+        float grid = 1.0 + floor(u_param5 * 6.0);
+        p = mod(p * grid, 1.0) - 0.5;
+    }
     
     float speed = u_time * (0.2 + u_param4 * 0.8);
     for(float i = 1.0; i < 6.0; i++){
