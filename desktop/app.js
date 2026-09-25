@@ -16,12 +16,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const audioSourceSelect = document.getElementById('audioSourceSelect');
   const audioHardwareDeviceSelect = document.getElementById('audioHardwareDeviceSelect');
   const btnRefreshHardware = document.getElementById('btnRefreshHardware');
+  const btnCaptureSystemAudio = document.getElementById('btnCaptureSystemAudio');
   const audioFileInput = document.getElementById('audioFileInput');
 
   // Meter Elements
   const meterBass = document.getElementById('meterBass');
   const meterMid = document.getElementById('meterMid');
   const meterTreble = document.getElementById('meterTreble');
+
+  // Sensitivity Sliders & Controls
+  const sliderMasterGain = document.getElementById('slider_masterGain');
+  const valMasterGain = document.getElementById('val_masterGain');
+  const checkAgc = document.getElementById('check_agc');
 
   // Gains
   let bassGain = 1.0;
@@ -51,6 +57,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Wire Master Sensitivity Boost & AGC
+  sliderMasterGain.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    audioIngest.masterGain = val;
+    valMasterGain.textContent = `${val.toFixed(1)}x`;
+  });
+
+  checkAgc.addEventListener('change', (e) => {
+    audioIngest.enableAGC = e.target.checked;
+  });
+
+  btnCaptureSystemAudio.addEventListener('click', async () => {
+    const ok = await audioIngest.startSystemAudioLoopback();
+    if (ok) {
+      btnCaptureSystemAudio.style.background = 'linear-gradient(135deg, #00ff88, #00b359)';
+      btnCaptureSystemAudio.textContent = '🖥️ System Audio Live Active';
+    }
+  });
+
   // Populate Hardware Audio Devices (JBL Headphones, Soundcard, Mic, Stereo Mix)
   async function populateHardwareDevices() {
     audioHardwareDeviceSelect.innerHTML = '<option value="">Default System Audio Device</option>';
@@ -74,6 +99,172 @@ document.addEventListener('DOMContentLoaded', () => {
   audioHardwareDeviceSelect.addEventListener('change', async (e) => {
     const deviceId = e.target.value;
     await audioIngest.startAudioDevice(deviceId || null);
+  });
+
+  // ==========================================
+  // Slider Rules & Custom Preset Manager System
+  // ==========================================
+  const sliderRulesPresetSelect = document.getElementById('sliderRulesPresetSelect');
+  const btnSaveSliderRule = document.getElementById('btnSaveSliderRule');
+  const btnDeleteSliderRule = document.getElementById('btnDeleteSliderRule');
+  const btnExportRules = document.getElementById('btnExportRules');
+  const btnImportRules = document.getElementById('btnImportRules');
+  const importRulesFileInput = document.getElementById('importRulesFileInput');
+
+  function getStoredRules() {
+    try {
+      const raw = localStorage.getItem('touchart_slider_rules');
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveStoredRules(rules) {
+    localStorage.setItem('touchart_slider_rules', JSON.stringify(rules));
+    refreshRulesDropdown();
+  }
+
+  function refreshRulesDropdown() {
+    const rules = getStoredRules();
+    sliderRulesPresetSelect.innerHTML = '<option value="default">Rule Preset: Default Studio Setup</option>';
+    
+    for (const name of Object.keys(rules)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = `Rule Preset: ${name}`;
+      sliderRulesPresetSelect.appendChild(opt);
+    }
+  }
+
+  refreshRulesDropdown();
+
+  btnSaveSliderRule.addEventListener('click', () => {
+    const name = prompt('Enter a name for this set of slider rules:', 'My Preset Rules 1');
+    if (!name) return;
+
+    const currentRule = {
+      p1: parseFloat(document.getElementById('slider_p1').value),
+      p2: parseFloat(document.getElementById('slider_p2').value),
+      p3: parseFloat(document.getElementById('slider_p3').value),
+      p4: parseFloat(document.getElementById('slider_p4').value),
+      p5: parseFloat(document.getElementById('slider_p5').value),
+      masterGain: parseFloat(sliderMasterGain.value),
+      bassGain: bassGain,
+      midGain: midGain,
+      trebleGain: trebleGain,
+      equationKey: presetSelect.value
+    };
+
+    const rules = getStoredRules();
+    rules[name] = currentRule;
+    saveStoredRules(rules);
+    sliderRulesPresetSelect.value = name;
+    alert(`Saved slider rule preset "${name}" successfully!`);
+  });
+
+  btnDeleteSliderRule.addEventListener('click', () => {
+    const selected = sliderRulesPresetSelect.value;
+    if (selected === 'default') {
+      alert('Cannot delete the default studio preset.');
+      return;
+    }
+
+    if (confirm(`Delete rule preset "${selected}"?`)) {
+      const rules = getStoredRules();
+      delete rules[selected];
+      saveStoredRules(rules);
+    }
+  });
+
+  sliderRulesPresetSelect.addEventListener('change', (e) => {
+    const name = e.target.value;
+    if (name === 'default') return;
+
+    const rules = getStoredRules();
+    const rule = rules[name];
+    if (rule) {
+      applyRule(rule);
+    }
+  });
+
+  function applyRule(rule) {
+    if (rule.p1 !== undefined) setSlider('slider_p1', 'val_p1', 'param1', rule.p1);
+    if (rule.p2 !== undefined) setSlider('slider_p2', 'val_p2', 'param2', rule.p2);
+    if (rule.p3 !== undefined) setSlider('slider_p3', 'val_p3', 'param3', rule.p3);
+    if (rule.p4 !== undefined) setSlider('slider_p4', 'val_p4', 'param4', rule.p4);
+    if (rule.p5 !== undefined) setSlider('slider_p5', 'val_p5', 'param5', rule.p5);
+
+    if (rule.masterGain !== undefined) {
+      sliderMasterGain.value = rule.masterGain;
+      audioIngest.masterGain = rule.masterGain;
+      valMasterGain.textContent = `${rule.masterGain.toFixed(1)}x`;
+    }
+    if (rule.bassGain !== undefined) {
+      bassGain = rule.bassGain;
+      document.getElementById('slider_bassGain').value = bassGain;
+      document.getElementById('val_bassGain').textContent = bassGain.toFixed(2);
+    }
+    if (rule.midGain !== undefined) {
+      midGain = rule.midGain;
+      document.getElementById('slider_midGain').value = midGain;
+      document.getElementById('val_midGain').textContent = midGain.toFixed(2);
+    }
+    if (rule.trebleGain !== undefined) {
+      trebleGain = rule.trebleGain;
+      document.getElementById('slider_trebleGain').value = trebleGain;
+      document.getElementById('val_trebleGain').textContent = trebleGain.toFixed(2);
+    }
+    if (rule.equationKey && PRESET_EQUATIONS[rule.equationKey]) {
+      presetSelect.value = rule.equationKey;
+      loadPreset(rule.equationKey);
+    }
+  }
+
+  function setSlider(sliderId, valId, paramKey, value) {
+    const slider = document.getElementById(sliderId);
+    const valDisplay = document.getElementById(valId);
+    if (slider && valDisplay) {
+      slider.value = value;
+      valDisplay.textContent = value.toFixed(2);
+      shaderEngine.params[paramKey] = value;
+    }
+  }
+
+  // Export JSON Rules
+  btnExportRules.addEventListener('click', () => {
+    const rules = getStoredRules();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rules, null, 2));
+    const dlAnchor = document.createElement('a');
+    dlAnchor.setAttribute("href", dataStr);
+    dlAnchor.setAttribute("download", "touchart_slider_rules.json");
+    document.body.appendChild(dlAnchor);
+    dlAnchor.click();
+    dlAnchor.remove();
+  });
+
+  // Import JSON Rules
+  btnImportRules.addEventListener('click', () => {
+    importRulesFileInput.click();
+  });
+
+  importRulesFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        const existing = getStoredRules();
+        const merged = { ...existing, ...imported };
+        saveStoredRules(merged);
+        alert('Rules imported successfully!');
+      } catch (err) {
+        alert('Invalid JSON file format.');
+      }
+    };
+    reader.readAsText(file);
   });
 
   // Load Initial Preset
@@ -114,6 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (val === 'wasapi_mic') {
       const selectedDevice = audioHardwareDeviceSelect.value || null;
       await audioIngest.startAudioDevice(selectedDevice);
+    } else if (val === 'system_loopback') {
+      await audioIngest.startSystemAudioLoopback();
     } else if (val === 'test_signal') {
       audioIngest.toggleSimulation(true);
     } else if (val === 'audio_file') {
@@ -191,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     for (let i = 0; i < 64; i++) {
       const val = (fftData[i * 4] / 255) * h;
-      specCtx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+      specCtx.fillStyle = 'rgba(0, 240, 255, 0.4)';
       specCtx.fillRect(i * barWidth, h - val, barWidth - 1, val);
     }
   }
