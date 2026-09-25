@@ -1,5 +1,5 @@
 /**
- * Audio Ingestion & FFT Spectrum Engine for TouchArt Studio
+ * Audio Ingestion & Hardware Device Spectrum Engine for TouchArt Studio
  */
 
 class TouchArtAudioIngest {
@@ -11,6 +11,7 @@ class TouchArtAudioIngest {
     this.ws = null;
     this.isSimulating = false;
     this.simulationStep = 0;
+    this.currentDeviceId = null;
 
     this.metrics = {
       subBass: 0,
@@ -36,24 +37,61 @@ class TouchArtAudioIngest {
     }
   }
 
-  async startMicrophone() {
+  /**
+   * Enumerate all connected audio hardware devices (Headphones, Soundcard, Mic, Bluetooth, Stereo Mix)
+   */
+  async getHardwareDevices() {
+    try {
+      // Trigger initial permission to get device labels
+      await navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        stream.getTracks().forEach(t => t.stop());
+      }).catch(() => {});
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioDevices = devices.filter(device => device.kind === 'audioinput' || device.kind === 'audiooutput');
+      
+      return audioDevices.map((d, index) => ({
+        id: d.deviceId,
+        label: d.label || `Audio Device ${index + 1} (${d.kind === 'audiooutput' ? 'Headphones/Speakers' : 'Input'})`,
+        kind: d.kind
+      }));
+    } catch (err) {
+      console.error('[Audio Ingest] Could not enumerate devices:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Capture specific hardware device (e.g. JBL Vibe Beam 2, Realtek Soundcard, Stereo Mix)
+   */
+  async startAudioDevice(deviceId = null) {
     try {
       this.initAudioContext();
       this.isSimulating = false;
+      this.currentDeviceId = deviceId;
 
       if (this.micStream) {
         this.micStream.getTracks().forEach(t => t.stop());
       }
 
-      this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const constraints = {
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        video: false
+      };
+
+      this.micStream = await navigator.mediaDevices.getUserMedia(constraints);
       const sourceNode = this.audioCtx.createMediaStreamSource(this.micStream);
       sourceNode.connect(this.analyser);
 
       this.processAudioLoop();
       return true;
     } catch (err) {
-      console.error('[Audio Ingest] Could not start microphone:', err);
-      alert('Could not access audio device: ' + err.message);
+      console.error('[Audio Ingest] Could not start audio device:', err);
+      // Fallback to default audio input
+      if (deviceId) {
+        return this.startAudioDevice(null);
+      }
+      alert('Could not access selected hardware audio device: ' + err.message);
       return false;
     }
   }

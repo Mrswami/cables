@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRecompile = document.getElementById('btnRecompile');
   const btnFullscreen = document.getElementById('btnFullscreen');
   const audioSourceSelect = document.getElementById('audioSourceSelect');
+  const audioHardwareDeviceSelect = document.getElementById('audioHardwareDeviceSelect');
+  const btnRefreshHardware = document.getElementById('btnRefreshHardware');
   const audioFileInput = document.getElementById('audioFileInput');
 
   // Meter Elements
@@ -49,6 +51,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Populate Hardware Audio Devices (JBL Headphones, Soundcard, Mic, Stereo Mix)
+  async function populateHardwareDevices() {
+    audioHardwareDeviceSelect.innerHTML = '<option value="">Default System Audio Device</option>';
+    const devices = await audioIngest.getHardwareDevices();
+    
+    devices.forEach(device => {
+      const opt = document.createElement('option');
+      opt.value = device.id;
+      opt.textContent = device.label;
+      audioHardwareDeviceSelect.appendChild(opt);
+    });
+  }
+
+  populateHardwareDevices();
+
+  btnRefreshHardware.addEventListener('click', () => {
+    populateHardwareDevices();
+  });
+
+  // Switch Selected Audio Hardware Device
+  audioHardwareDeviceSelect.addEventListener('change', async (e) => {
+    const deviceId = e.target.value;
+    await audioIngest.startAudioDevice(deviceId || null);
+  });
+
   // Load Initial Preset
   loadPreset('cyber_core');
 
@@ -79,13 +106,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('val_trebleGain').textContent = trebleGain.toFixed(2);
   });
 
-  // Input Source Dropdown Switcher
+  // Stream Mode Dropdown Switcher
   audioSourceSelect.addEventListener('change', async (e) => {
     const val = e.target.value;
     audioIngest.toggleSimulation(false);
 
     if (val === 'wasapi_mic') {
-      await audioIngest.startMicrophone();
+      const selectedDevice = audioHardwareDeviceSelect.value || null;
+      await audioIngest.startAudioDevice(selectedDevice);
     } else if (val === 'test_signal') {
       audioIngest.toggleSimulation(true);
     } else if (val === 'audio_file') {
@@ -174,6 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fpsCounter.textContent = `${shaderEngine.currentFps} FPS`;
     requestAnimationFrame(animationLoop);
   }
+
+  // Start with default hardware device audio capture
+  audioIngest.startAudioDevice(null);
 
   animationLoop();
 });
