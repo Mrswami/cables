@@ -402,10 +402,20 @@ export default function App() {
     st.rot += 0.005 + (rotMod * 0.05);
     st.tunnelZ += (0.05 + warpMod * 0.2) * st.params.speed;
 
-    // Palette Colors Lookup
+    // Palette Colors Lookup & Interpolator
     const currentPal = PALETTES.find(p => p.id === st.activePalette) || PALETTES[0];
-    const c0 = currentPal.colors[0];
-    const c1 = currentPal.colors[1];
+    const palColors = currentPal.colors;
+    const c0 = palColors[0];
+    const c1 = palColors[1];
+    const c2 = palColors[2] || palColors[0];
+    const c3 = palColors[3] || palColors[1];
+
+    // Helper to get palette color by float index (0..1)
+    const getPalColor = (t, alpha = 1) => {
+      const idx = Math.floor(Math.abs(t) * (palColors.length - 1)) % palColors.length;
+      const nextIdx = (idx + 1) % palColors.length;
+      return palColors[idx];
+    };
 
     // Background Decay & Trail Rendering (Never let canvas blow out to pure white)
     ctx.save();
@@ -431,12 +441,12 @@ export default function App() {
 
       for (let r = 1; r <= rings; r++) {
         const ringRad = (baseRadius / rings) * r * (1 + bands.low * 0.3);
-        const ringHue = (r * 35 + st.time * 40 + hueMod * 180) % 360;
+        const col = palColors[(r - 1) % palColors.length];
 
-        ctx.strokeStyle = `hsla(${ringHue}, 100%, ${65 + bloomMod * 20}%, ${0.7 + bloomMod * 0.25})`;
+        ctx.strokeStyle = col;
         ctx.lineWidth = 1.5 + bloomMod * 2.0;
         ctx.shadowBlur = 12 * Math.min(bloomMod, 2);
-        ctx.shadowColor = `hsla(${ringHue}, 100%, 65%, 0.8)`;
+        ctx.shadowColor = col;
 
         for (let p = 0; p < petals; p++) {
           const angle = (p / petals) * Math.PI * 2;
@@ -450,7 +460,8 @@ export default function App() {
 
           // Concentric geometric star polygons
           if (r % 2 === 0 && bands.high > 0.15) {
-            ctx.fillStyle = `hsla(${ringHue + 60}, 100%, 75%, ${bands.high * 0.4})`;
+            const innerCol = palColors[(r + 1) % palColors.length];
+            ctx.fillStyle = innerCol;
             ctx.beginPath();
             ctx.arc(px, py, petalRadius * 0.3, 0, Math.PI * 2);
             ctx.fill();
@@ -473,12 +484,12 @@ export default function App() {
         const depth = ((i * 40 + st.tunnelZ * 100) % 1000) / 1000;
         const scale = Math.pow(depth, 3) * (Math.min(W, H) * 0.8) * (1 + bands.sub * 0.6);
         const alpha = Math.sin(depth * Math.PI) * (0.5 + bloomMod * 0.4);
-        const ringHue = (depth * 280 + st.time * 60 + hueMod * 180) % 360;
+        const col = palColors[i % palColors.length];
 
-        ctx.strokeStyle = `hsla(${ringHue}, 90%, 65%, ${alpha})`;
+        ctx.strokeStyle = col;
         ctx.lineWidth = (1 - depth) * 4 + bloomMod * 2;
         ctx.shadowBlur = 15 * Math.min(bloomMod, 2) * (1 - depth);
-        ctx.shadowColor = ctx.strokeStyle;
+        ctx.shadowColor = col;
 
         ctx.beginPath();
         for (let s = 0; s <= sides; s++) {
@@ -492,7 +503,8 @@ export default function App() {
 
         // Cross-tunnel vector lines
         if (i % 4 === 0) {
-          ctx.strokeStyle = `hsla(${ringHue + 180}, 100%, 70%, ${alpha * 0.3})`;
+          const crossCol = palColors[(i + 2) % palColors.length];
+          ctx.strokeStyle = crossCol;
           ctx.beginPath();
           ctx.moveTo(0, 0);
           ctx.lineTo(Math.cos(st.rot + depth) * scale, Math.sin(st.rot + depth) * scale);
@@ -530,12 +542,12 @@ export default function App() {
 
         if (screenX >= 0 && screenX < W && screenY >= 0 && screenY < H) {
           const pSize = Math.max(1, p.size * k * 4 * (1 + bands.high));
-          const pHue = (p.hueOffset + st.time * 50 + hueMod * 180) % 360;
-          const pAlpha = Math.min(1, (1 - p.z / 2000) * (0.6 + bloomMod * 0.4));
+          const colIndex = (i + Math.floor(st.time * 2)) % palColors.length;
+          const col = palColors[colIndex];
 
-          ctx.fillStyle = `hsla(${pHue}, 100%, 75%, ${pAlpha})`;
+          ctx.fillStyle = col;
           ctx.shadowBlur = 8 * Math.min(bloomMod, 2);
-          ctx.shadowColor = ctx.fillStyle;
+          ctx.shadowColor = col;
 
           ctx.beginPath();
           ctx.arc(screenX, screenY, pSize, 0, Math.PI * 2);
@@ -547,7 +559,7 @@ export default function App() {
             const nextK = 400 / nextP.z;
             const nx = cx + nextP.x * nextK;
             const ny = cy + nextP.y * nextK;
-            ctx.strokeStyle = `hsla(${pHue}, 100%, 75%, ${pAlpha * 0.3})`;
+            ctx.strokeStyle = col;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(screenX, screenY);
@@ -573,12 +585,12 @@ export default function App() {
       for (let r = 0; r < rows; r++) {
         const zRatio = (r / rows);
         const rowY = (r / rows) * gridH - gridH * 0.5;
-        const rowHue = (r * 15 + st.time * 40 + hueMod * 180) % 360;
+        const col = palColors[r % palColors.length];
 
-        ctx.strokeStyle = `hsla(${rowHue}, 100%, 65%, ${0.3 + (1 - zRatio) * 0.7})`;
+        ctx.strokeStyle = col;
         ctx.lineWidth = 1.5 + bloomMod;
         ctx.shadowBlur = 8 * Math.min(bloomMod, 2);
-        ctx.shadowColor = ctx.strokeStyle;
+        ctx.shadowColor = col;
 
         ctx.beginPath();
         for (let c = 0; c <= cols; c++) {
@@ -607,14 +619,14 @@ export default function App() {
 
         const x = i * cellW;
         const y = isGlitch ? Math.random() * (H - sliceH) : (H - sliceH) / 2;
+        const col = palColors[i % palColors.length];
 
-        const gHue = (i * 8 + st.time * 50 + hueMod * 180) % 360;
-        ctx.fillStyle = `hsla(${gHue}, 100%, 60%, ${0.7 + bloomMod * 0.3})`;
+        ctx.fillStyle = col;
         ctx.fillRect(x, y, cellW - 2, sliceH);
 
         // Cyber scanlines
         if (i % 2 === 0) {
-          ctx.fillStyle = '#00f0ff';
+          ctx.fillStyle = palColors[(i + 1) % palColors.length];
           ctx.fillRect(x, (y + st.time * 100) % H, cellW - 2, 4);
         }
       }
@@ -627,7 +639,7 @@ export default function App() {
       const numPoints = waveData.length;
       const step = W / numPoints;
 
-      ctx.strokeStyle = c1;
+      ctx.strokeStyle = c0;
       ctx.lineWidth = 3 + bloomMod * 2;
       ctx.shadowBlur = 15 * Math.min(bloomMod, 2);
       ctx.shadowColor = c0;
@@ -642,7 +654,7 @@ export default function App() {
       ctx.stroke();
 
       // Mirrored Harmonic reflection
-      ctx.strokeStyle = c0;
+      ctx.strokeStyle = c1;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       for (let i = 0; i < numPoints; i++) {
