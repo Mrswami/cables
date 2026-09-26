@@ -85,6 +85,7 @@ wss.on('connection', (ws) => {
       if (parsed.type === 'push_audio_metrics') {
         syncState.source = parsed.source || 'webaudio';
         syncState.audio = { ...syncState.audio, ...parsed.audio };
+        if (parsed.fft) syncState.fft = parsed.fft;
         if (parsed.stems) syncState.stems = { ...syncState.stems, ...parsed.stems };
         if (parsed.bpm) syncState.bpm = parsed.bpm;
         if (typeof parsed.isPlaying === 'boolean') syncState.isPlaying = parsed.isPlaying;

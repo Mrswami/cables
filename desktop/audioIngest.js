@@ -157,14 +157,30 @@ class TouchArtAudioIngest {
   connectWebSocketSync() {
     try {
       this.ws = new WebSocket('ws://localhost:8080');
+      this.ws.onopen = () => {
+        console.log('[Audio Ingest] Connected to Cables WebSocket server (ws://localhost:8080)');
+      };
       this.ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
-          if ((msg.type === 'sync_update' || msg.type === 'init') && msg.data && msg.data.audio) {
-            this.metrics = { ...this.metrics, ...msg.data.audio };
-            if (this.onMetricsCallback) this.onMetricsCallback(this.metrics);
+          if ((msg.type === 'sync_update' || msg.type === 'init') && msg.data) {
+            if (msg.data.audio) {
+              this.metrics = { ...this.metrics, ...msg.data.audio };
+              this.isPythonLoopback = (msg.data.source === 'python_wasapi_loopback');
+              this.pythonDeviceName = msg.data.audio.deviceName || 'Windows WASAPI Loopback';
+            }
+            let fftArray = null;
+            if (msg.data.fft && Array.isArray(msg.data.fft)) {
+              fftArray = new Uint8Array(msg.data.fft);
+            }
+            if (this.onMetricsCallback) {
+              this.onMetricsCallback(this.metrics, fftArray);
+            }
           }
         } catch (e) {}
+      };
+      this.ws.onclose = () => {
+        setTimeout(() => this.connectWebSocketSync(), 2000);
       };
     } catch (e) {}
   }

@@ -432,6 +432,24 @@
           </div>
         </div>
 
+        <!-- Python WASAPI Loopback Engine (Bit-Perfect System Audio) -->
+        <div class="param-group" style="border-color: rgba(0, 255, 136, 0.45); background: rgba(0, 255, 136, 0.04);">
+          <div class="param-group-title" style="color: var(--accent-green); display: flex; justify-content: space-between; align-items: center;">
+            <span>🐍 Python WASAPI Loopback</span>
+            <span id="badgePythonStatus" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: rgba(0, 255, 136, 0.2); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.4);">
+              ● CONNECTING...
+            </span>
+          </div>
+          <div id="pythonDeviceInfo" style="font-size: 0.72rem; color: var(--text-primary); margin-bottom: 6px; font-family: var(--font-code);">
+            🎧 Device: Scanning system loopback...
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button id="btnRestartPythonBridge" class="btn-header" style="flex: 1; font-size: 0.72rem; padding: 4px 8px; background: rgba(0, 255, 136, 0.15); border-color: var(--accent-green);">
+              🔄 Reconnect WASAPI
+            </button>
+          </div>
+        </div>
+
         <!-- Hardware Audio Devices & Troubleshooting -->
         <div class="param-group" style="border-color: rgba(0, 240, 255, 0.4); background: rgba(0, 240, 255, 0.05);">
           <div class="param-group-title" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center;">

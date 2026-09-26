@@ -82,6 +82,24 @@ document.addEventListener('DOMContentLoaded', () => {
       eqFftData = fftData;
     }
 
+    // Update Python WASAPI Loopback UI Badge if active
+    if (audioIngest.isPythonLoopback) {
+      const badgePython = document.getElementById('badgePythonStatus');
+      const devInfo = document.getElementById('pythonDeviceInfo');
+      if (badgePython) {
+        badgePython.textContent = '● LIVE LOOPBACK';
+        badgePython.style.background = 'rgba(0, 255, 136, 0.25)';
+        badgePython.style.color = '#00ff88';
+        badgePython.style.borderColor = '#00ff88';
+      }
+      if (devInfo && audioIngest.pythonDeviceName) {
+        devInfo.textContent = `🎧 ${audioIngest.pythonDeviceName}`;
+      }
+      if (debugVisible && dbgDevice) {
+        dbgDevice.textContent = audioIngest.pythonDeviceName || 'Python WASAPI';
+      }
+    }
+
     // Update Debug Overlay
     if (debugVisible) {
       dbgBass.textContent = shaderEngine.audio.bass.toFixed(3);
@@ -243,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Switch Selected Audio Hardware Device
-  audioHardwareDeviceSelect.addEventListener('change', async (e) => {
+    audioHardwareDeviceSelect.addEventListener('change', async (e) => {
     const deviceId = e.target.value;
     await audioIngest.startAudioDevice(deviceId || null);
     if (debugVisible) {
@@ -251,6 +269,28 @@ document.addEventListener('DOMContentLoaded', () => {
       dbgDevice.textContent = opt ? opt.textContent.substring(0, 30) : '—';
     }
   });
+
+  // Reconnect / Restart Python WASAPI Loopback Bridge
+  const btnRestartPythonBridge = document.getElementById('btnRestartPythonBridge');
+  if (btnRestartPythonBridge) {
+    btnRestartPythonBridge.addEventListener('click', () => {
+      if (typeof require !== 'undefined') {
+        try {
+          const { ipcRenderer } = require('electron');
+          if (ipcRenderer) {
+            ipcRenderer.send('restart-python-bridge');
+          }
+        } catch (err) {}
+      }
+      audioIngest.connectWebSocketSync();
+      const badgePython = document.getElementById('badgePythonStatus');
+      if (badgePython) {
+        badgePython.textContent = '● RECONNECTING...';
+        badgePython.style.background = 'rgba(255, 183, 0, 0.2)';
+        badgePython.style.color = '#ffb700';
+      }
+    });
+  }
 
   // ==========================================
   // Slider Rules & Custom Preset Manager System
