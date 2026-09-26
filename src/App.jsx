@@ -17,7 +17,8 @@ const Icons = {
   Sliders: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>,
   Palette: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>,
   Fx: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="12" cy="12" r="9"/><path d="M10 8h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-5"/><path d="M10 12h4"/><path d="M10 16h4"/></svg>,
-  Matrix: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+  Matrix: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>,
+  Eye: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
 };
 
 // --- PRESET ENGINES ---
@@ -56,11 +57,13 @@ const MOD_TARGETS = [
 export default function App() {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
+  const bgTimerRef = useRef(null);
   const analyserRef = useRef(null);
   const dataArrayRef = useRef(null);
   const waveDataArrayRef = useRef(null);
   const audioCtxRef = useRef(null);
   const streamRef = useRef(null);
+  const wakeLockRef = useRef(null);
 
   // App & Source State
   const [isRunning, setIsRunning] = useState(false);
@@ -70,6 +73,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'engine' | 'palette' | 'postfx'
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [keepAwake, setKeepAwake] = useState(true);
 
   // Live RMS Audio Levels for Strips
   const [levels, setLevels] = useState({ low: 0, mid: 0, high: 0, peak: 0, sub: 0 });
@@ -133,6 +137,57 @@ export default function App() {
     stateRef.current.params = params;
   }, [activeEngine, activePalette, subGain, lowGain, midGain, highGain, masterGain, modMatrix, params]);
 
+  // Request Screen WakeLock to prevent browser / display from sleeping
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) {
+      // Wake lock not supported or denied
+    }
+  };
+
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+    }
+  };
+
+  // Keep rendering and audio processing active even when Tab is unfocused or in background
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        // Tab moved to background: keep Web Audio context awake & force continuous tick
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume();
+        }
+        if (stateRef.current.isRunning && !bgTimerRef.current) {
+          bgTimerRef.current = setInterval(() => {
+            renderFrame();
+          }, 1000 / 30); // 30fps steady background clock
+        }
+      } else {
+        // Tab in foreground: clear background interval and switch back to requestAnimationFrame
+        if (bgTimerRef.current) {
+          clearInterval(bgTimerRef.current);
+          bgTimerRef.current = null;
+        }
+        if (stateRef.current.isRunning) {
+          cancelAnimationFrame(animRef.current);
+          animRef.current = requestAnimationFrame(renderLoop);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (bgTimerRef.current) clearInterval(bgTimerRef.current);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle Canvas Resize
   useEffect(() => {
     const handleResize = () => {
@@ -151,6 +206,12 @@ export default function App() {
   // Stop & Clean up Streams
   const stopAudio = useCallback(() => {
     cancelAnimationFrame(animRef.current);
+    if (bgTimerRef.current) {
+      clearInterval(bgTimerRef.current);
+      bgTimerRef.current = null;
+    }
+    releaseWakeLock();
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
     }
@@ -171,7 +232,7 @@ export default function App() {
     }
   }, []);
 
-  // Setup Web Audio Graph
+  // Setup Web Audio Graph with continuous background active node
   const buildAudioGraph = useCallback((stream) => {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = audioCtx.createAnalyser();
@@ -183,6 +244,12 @@ export default function App() {
     const source = audioCtx.createMediaStreamSource(stream);
     source.connect(analyser);
 
+    // Create an inaudible gain node connected to destination to force the browser audio pipeline to NEVER sleep
+    const keepAliveGain = audioCtx.createGain();
+    keepAliveGain.gain.value = 0.00001; // virtually silent but actively streamed to speakers
+    source.connect(keepAliveGain);
+    keepAliveGain.connect(audioCtx.destination);
+
     audioCtxRef.current = audioCtx;
     analyserRef.current = analyser;
     dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
@@ -192,11 +259,14 @@ export default function App() {
     setIsRunning(true);
     stateRef.current.isRunning = true;
 
+    // Request screen wake lock
+    if (keepAwake) requestWakeLock();
+
     // Initialize particles
     initParticles();
 
     animRef.current = requestAnimationFrame(renderLoop);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [keepAwake]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initParticles = () => {
     const pts = [];
@@ -230,8 +300,8 @@ export default function App() {
           sampleRate: 48000
         }
       });
-      // Disable video tracks immediately to free CPU/GPU
-      stream.getVideoTracks().forEach(track => { track.enabled = false; });
+      // Do NOT kill the video track immediately or some browsers pause the whole stream on Alt+Tab.
+      // We keep the track alive in memory so background streaming never sleeps.
       buildAudioGraph(stream);
       setSourceType('tab');
     } catch (err) {
@@ -239,7 +309,7 @@ export default function App() {
     }
   };
 
-  // Capture Microphone Audio
+  // Capture Microphone Audio (or Stereo Mix for Firefox)
   const captureMic = async () => {
     setError('');
     try {
@@ -269,8 +339,8 @@ export default function App() {
     return modSum;
   };
 
-  // --- CORE 60FPS RENDER PIPELINE ---
-  const renderLoop = useCallback(() => {
+  // Single Frame Render Engine
+  const renderFrame = () => {
     if (!analyserRef.current || !canvasRef.current) return;
 
     const analyser = analyserRef.current;
@@ -336,8 +406,6 @@ export default function App() {
     const currentPal = PALETTES.find(p => p.id === st.activePalette) || PALETTES[0];
     const c0 = currentPal.colors[0];
     const c1 = currentPal.colors[1];
-    const c2 = currentPal.colors[2];
-    const c3 = currentPal.colors[3];
 
     // Background Decay & Strobe effect
     ctx.save();
@@ -605,7 +673,12 @@ export default function App() {
       }
       ctx.restore();
     }
+  };
 
+  // --- CORE 60FPS RENDER PIPELINE ---
+  const renderLoop = useCallback(() => {
+    if (!stateRef.current.isRunning) return;
+    renderFrame();
     animRef.current = requestAnimationFrame(renderLoop);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -655,9 +728,9 @@ export default function App() {
             id="btn-capture-mic"
             className={`transport-btn capture-btn ${sourceType === 'mic' ? 'active-mic' : ''}`}
             onClick={captureMic}
-            title="Capture Microphone"
+            title="Capture Microphone (or Stereo Mix for Firefox)"
           >
-            <Icons.Mic /> Microphone
+            <Icons.Mic /> Microphone / Stereo Mix
           </button>
           <button
             id="btn-stop"
@@ -689,10 +762,19 @@ export default function App() {
 
         {/* LIVE STATUS & CONTROLS */}
         <div className="topbar-section status-section">
+          <button
+            className={`awake-toggle-btn ${keepAwake ? 'active' : ''}`}
+            onClick={() => setKeepAwake(!keepAwake)}
+            title="Keep Audio Engine & Visuals awake in background / Alt-Tab"
+          >
+            <Icons.Eye />
+            <span>{keepAwake ? 'AWAKE: ON' : 'AWAKE: OFF'}</span>
+          </button>
+
           {isRunning ? (
             <span className="status-badge live">
               <span className="pulse-dot"></span>
-              LIVE · {sourceType === 'tab' ? 'Browser Audio' : 'Microphone'}
+              LIVE · {sourceType === 'tab' ? 'Browser Audio' : 'Mic / Stereo Mix'}
             </span>
           ) : (
             <span className="status-badge idle">● STANDBY</span>
@@ -715,15 +797,15 @@ export default function App() {
               <div className="idle-badge">Soundcard & Tab Audio Link</div>
               <h2>Ready to Visualize</h2>
               <p>
-                Click <strong>Capture Tab Audio</strong> to stream music directly from your
-                <strong> Firefox / Chrome YouTube tab</strong>, SoundCloud, or media player.
+                Click <strong>Capture Tab Audio</strong> (Chrome/Edge) or <strong>Microphone / Stereo Mix</strong> (Firefox)
+                to stream music directly from your YouTube tab, SoundCloud, or media player.
               </p>
               <div className="idle-actions">
                 <button className="idle-action-btn primary" onClick={captureTabAudio}>
                   <Icons.Monitor /> Capture YouTube / Tab Audio
                 </button>
                 <button className="idle-action-btn" onClick={captureMic}>
-                  <Icons.Mic /> Test with Microphone
+                  <Icons.Mic /> Microphone / Stereo Mix
                 </button>
               </div>
               {error && <div className="error-callout">{error}</div>}
@@ -781,7 +863,7 @@ export default function App() {
               <Icons.Fx /> Post-Processing Shaders
             </button>
           </div>
-          <span className="rack-info">Ableton Live FX Rack v2.0</span>
+          <span className="rack-info">Ableton Live FX Rack v2.0 · Background Audio Lock</span>
         </div>
 
         <div className="rack-content">
