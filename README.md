@@ -1,5 +1,6 @@
 # TouchArt Studio (TouchDesigner Free Alternative) & Cables.gl Live Audio Engine
 
+[![Live Web App](https://img.shields.io/badge/Live%20Web%20App-cables.web.app-ff007f.svg)](https://cables.web.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -8,7 +9,8 @@
 
 > **TouchArt Studio** is a free, open-source TouchDesigner alternative and high-performance live visual synthesizer. It pairs hardware-accelerated 3D WebGL2 GLSL code art shaders with a bit-perfect **Python WASAPI Windows soundcard loopback engine** and real-time **multi-band spectral flux beat detection**.
 
-Repository: [https://github.com/Mrswami/cables.git](https://github.com/Mrswami/cables.git)
+🌐 **Live Web App**: [https://cables.web.app](https://cables.web.app)  
+📁 **Repository**: [https://github.com/Mrswami/cables.git](https://github.com/Mrswami/cables.git)
 
 ---
 

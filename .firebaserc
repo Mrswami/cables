@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "cables-visualizer"
+  },
+  "targets": {
+    "cables-visualizer": {
+      "hosting": {
+        "cables": [
+          "cables"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
