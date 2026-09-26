@@ -63,16 +63,36 @@ class WasapiSpectralFluxIngestor:
         self.smooth_peak = 0.0
         self.smooth_eq = np.zeros(64, dtype=float)
 
-        # Pre-compute 64 EQ band bin indices (logarithmic distribution)
-        self.eq_bin_indices = np.round(
-            np.geomspace(1, CHUNK_SIZE // 2, 65)
-        ).astype(int)
+        self._init_frequency_bands()
+
+    def _init_frequency_bands(self):
+        bin_hz = max(1.0, self.sample_rate / float(CHUNK_SIZE))
+        # 64 Logarithmically Spaced Bands from 20 Hz to 20,000 Hz
+        freq_edges = np.geomspace(20.0, min(20000.0, self.sample_rate / 2.05), 65)
+        bin_edges = np.clip(np.round(freq_edges / bin_hz).astype(int), 1, CHUNK_SIZE // 2)
+        
+        self.eq_bin_ranges = []
+        for i in range(64):
+            b_start = int(bin_edges[i])
+            b_end = max(b_start + 1, int(bin_edges[i + 1]))
+            self.eq_bin_ranges.append((b_start, b_end))
+
+        # Musical frequency bin slicing boundaries (excluding DC offset bin 0)
+        # Sub-bass: 20-80 Hz
+        # Bass: 80-260 Hz
+        # Mid: 260-3500 Hz
+        # Treble: 3500-18000 Hz
+        self.bin_sub_bass = (max(1, int(round(20.0 / bin_hz))), max(2, int(round(80.0 / bin_hz))))
+        self.bin_bass = (max(2, int(round(80.0 / bin_hz))), max(3, int(round(260.0 / bin_hz))))
+        self.bin_mid = (max(3, int(round(260.0 / bin_hz))), max(10, int(round(3500.0 / bin_hz))))
+        self.bin_treble = (max(10, int(round(3500.0 / bin_hz))), min(CHUNK_SIZE // 2, int(round(18000.0 / bin_hz))))
 
     def find_loopback_device(self):
         try:
             self.loopback = self.p.get_default_wasapi_loopback()
             self.sample_rate = int(self.loopback["defaultSampleRate"])
             self.channels = self.loopback["maxInputChannels"]
+            self._init_frequency_bands()
             print(f"[WASAPI Loopback] Found Default Loopback: {self.loopback['name']} ({self.sample_rate} Hz, {self.channels}ch)")
             return True
         except Exception as e:
@@ -85,6 +105,7 @@ class WasapiSpectralFluxIngestor:
                         self.loopback = dev
                         self.sample_rate = int(dev["defaultSampleRate"])
                         self.channels = dev["maxInputChannels"]
+                        self._init_frequency_bands()
                         print(f"[WASAPI Loopback] Fallback selected: {dev['name']}")
                         return True
                 except Exception:
@@ -131,37 +152,49 @@ class WasapiSpectralFluxIngestor:
         peak_val = float(np.max(np.abs(audio)))
         rms_val = float(np.sqrt(np.mean(audio ** 2)))
 
-        # Dynamic Peak Envelope Tracking
-        if peak_val > self.peak_envelope:
-            self.peak_envelope = min(1.0, peak_val)
+        # Squelch / Noise Floor Gate: Prevents AGC from boosting background hiss / silence to 100%
+        if peak_val < 0.003:
+            agc_gain = 0.0
+            raw_sub_bass = 0.0
+            raw_bass = 0.0
+            raw_mid = 0.0
+            raw_treble = 0.0
+            raw_rms = 0.0
+            raw_peak = 0.0
         else:
-            self.peak_envelope = max(0.04, self.peak_envelope * 0.992)
+            # Dynamic Peak Envelope Tracking with controlled floor
+            if peak_val > self.peak_envelope:
+                self.peak_envelope = min(1.0, peak_val)
+            else:
+                self.peak_envelope = max(0.12, self.peak_envelope * 0.995)
 
-        agc_gain = (1.0 / self.peak_envelope) * self.master_gain
+            agc_gain = (1.0 / self.peak_envelope) * self.master_gain
 
-        # Windowed Real-FFT
+        # Windowed Real-FFT (excluding DC bin 0)
         windowed = audio * self.hanning_window
         fft_complex = np.fft.rfft(windowed)
         magnitude = np.abs(fft_complex)
+        magnitude[0] = 0.0  # Clear DC offset
 
-        # Half-wave rectified spectral flux
+        # Half-wave rectified spectral flux for beat detection
         flux = np.maximum(0.0, magnitude - self.prev_magnitude)
         self.prev_magnitude = magnitude
 
-        # Musical frequency bin slicing (bin resolution ~ 46.875 Hz @ 48kHz)
-        # Sub-bass: 0-100Hz (bins 0-2)
-        # Bass/Kick: 100-280Hz (bins 2-6)
-        # Mid/Vocal/Snare: 280-3500Hz (bins 6-75)
-        # Treble/Hihats: 3500-16000Hz (bins 75-340)
-        sub_bass_mag = float(np.mean(magnitude[0:2])) if len(magnitude) > 2 else 0.0
-        bass_mag = float(np.mean(magnitude[2:6])) if len(magnitude) > 6 else 0.0
-        mid_mag = float(np.mean(magnitude[6:75])) if len(magnitude) > 75 else 0.0
-        treble_mag = float(np.mean(magnitude[75:340])) if len(magnitude) > 340 else 0.0
+        # Musical frequency bin slicing
+        s0, s1 = self.bin_sub_bass
+        b0, b1 = self.bin_bass
+        m0, m1 = self.bin_mid
+        t0, t1 = self.bin_treble
 
-        kick_flux = float(np.sum(flux[0:6]))
-        snare_flux = float(np.sum(flux[6:50]))
-        hihat_flux = float(np.sum(flux[50:280]))
-        total_flux = float(np.sum(flux))
+        sub_bass_mag = float(np.mean(magnitude[s0:s1])) if s1 > s0 else 0.0
+        bass_mag = float(np.mean(magnitude[b0:b1])) if b1 > b0 else 0.0
+        mid_mag = float(np.mean(magnitude[m0:m1])) if m1 > m0 else 0.0
+        treble_mag = float(np.mean(magnitude[t0:t1])) if t1 > t0 else 0.0
+
+        kick_flux = float(np.sum(flux[b0:b1])) if b1 > b0 else 0.0
+        snare_flux = float(np.sum(flux[m0:min(m1, m0 + 40)]))
+        hihat_flux = float(np.sum(flux[t0:t1])) if t1 > t0 else 0.0
+        total_flux = float(np.sum(flux[1:]))
 
         # Update statistical histories
         self.kick_history.append(kick_flux)
@@ -172,12 +205,12 @@ class WasapiSpectralFluxIngestor:
         # Kick Beat Detection (Adaptive Thresholding)
         kick_mean = np.mean(self.kick_history) if len(self.kick_history) > 5 else 0.0
         kick_std = np.std(self.kick_history) if len(self.kick_history) > 5 else 0.0
-        kick_threshold = kick_mean + 1.25 * kick_std + 0.02
+        kick_threshold = kick_mean + 1.35 * kick_std + 0.03
 
         # Smooth Kick Beat Envelope (Analog Light-Filament Decay)
         self.kick_envelope = max(0.0, self.kick_envelope * 0.91)
         is_kick = False
-        if kick_flux > kick_threshold and (now - self.last_kick_time) > 0.16 and kick_flux > 0.03:
+        if kick_flux > kick_threshold and (now - self.last_kick_time) > 0.16 and kick_flux > 0.03 and agc_gain > 0:
             is_kick = True
             # Soft musical attack rather than a binary square step
             self.kick_envelope = min(1.0, self.kick_envelope * 0.4 + 0.6)
@@ -192,7 +225,7 @@ class WasapiSpectralFluxIngestor:
         # Snare / Mid Onset Detection
         self.snare_envelope = max(0.0, self.snare_envelope * 0.88)
         is_snare = False
-        if snare_flux > snare_threshold and (now - self.last_snare_time) > 0.14:
+        if snare_flux > (np.mean(self.snare_history) + 1.4 * np.std(self.snare_history) + 0.03) and (now - self.last_snare_time) > 0.14 and agc_gain > 0:
             is_snare = True
             self.snare_envelope = min(1.0, self.snare_envelope * 0.4 + 0.6)
             self.last_snare_time = now
@@ -200,18 +233,18 @@ class WasapiSpectralFluxIngestor:
         # Hi-Hat / High Treble Transient
         self.hihat_envelope = max(0.0, self.hihat_envelope * 0.86)
         is_hihat = False
-        if hihat_flux > hihat_threshold and (now - self.last_hihat_time) > 0.08:
+        if hihat_flux > (np.mean(self.hihat_history) + 1.35 * np.std(self.hihat_history) + 0.02) and (now - self.last_hihat_time) > 0.08 and agc_gain > 0:
             is_hihat = True
             self.hihat_envelope = min(1.0, self.hihat_envelope * 0.4 + 0.6)
             self.last_hihat_time = now
 
-        # Raw Scaled Metrics
-        raw_sub_bass = min(1.0, float((sub_bass_mag * agc_gain) ** 1.15))
-        raw_bass = min(1.0, float((bass_mag * agc_gain) ** 1.15))
-        raw_mid = min(1.0, float((mid_mag * agc_gain) ** 1.15))
-        raw_treble = min(1.0, float((treble_mag * agc_gain * 1.5) ** 1.15))
-        raw_rms = min(1.0, float(rms_val * agc_gain))
-        raw_peak = min(1.0, float(peak_val * agc_gain))
+        if agc_gain > 0:
+            raw_sub_bass = min(1.0, float((sub_bass_mag * agc_gain) ** 1.1))
+            raw_bass = min(1.0, float((bass_mag * agc_gain) ** 1.1))
+            raw_mid = min(1.0, float((mid_mag * agc_gain * 1.2) ** 1.1))
+            raw_treble = min(1.0, float((treble_mag * agc_gain * 2.0) ** 1.1))
+            raw_rms = min(1.0, float(rms_val * agc_gain))
+            raw_peak = min(1.0, float(peak_val * agc_gain))
 
         # Asymmetric IIR Temporal Filter (Fast Attack, Silky Graceful Decay)
         # Prevents violent jitter & visual strobing while maintaining high organic responsiveness
@@ -228,21 +261,19 @@ class WasapiSpectralFluxIngestor:
         self.smooth_rms = iir_smooth(self.smooth_rms, raw_rms, 0.30, 0.92)
         self.smooth_peak = iir_smooth(self.smooth_peak, raw_peak, 0.50, 0.90)
 
-        # 64-Band EQ Bars with Temporal Ballistics Smoothing (aiXander & VolkanSah algorithm)
+        # 64-Band EQ Bars with true musical frequency mapping and pink noise perceptual tilt
         eq_bars = []
-        for i in range(64):
-            idx_start = self.eq_bin_indices[i]
-            idx_end = max(idx_start + 1, self.eq_bin_indices[i + 1])
+        for i, (idx_start, idx_end) in enumerate(self.eq_bin_ranges):
             band_val = float(np.mean(magnitude[idx_start:idx_end]))
-            # Perceptual tilt curve
-            tilt = 1.0 + (i / 64.0) * 2.2
-            norm_val = min(255.0, band_val * agc_gain * tilt * 140.0)
+            # ISO 226 equal-loudness / pink noise tilt compensation
+            tilt = 1.0 + (i / 63.0) ** 1.2 * 3.5
+            norm_val = min(255.0, band_val * agc_gain * tilt * 110.0) if agc_gain > 0 else 0.0
 
-            # Asymmetric bar decay
+            # Asymmetric bar decay (aiXander & VolkanSah algorithm)
             if norm_val > self.smooth_eq[i]:
                 self.smooth_eq[i] = self.smooth_eq[i] * 0.35 + norm_val * 0.65
             else:
-                self.smooth_eq[i] = self.smooth_eq[i] * 0.88 + norm_val * 0.12
+                self.smooth_eq[i] = self.smooth_eq[i] * 0.90 + norm_val * 0.10
             eq_bars.append(int(self.smooth_eq[i]))
 
         return {

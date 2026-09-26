@@ -164,6 +164,7 @@ class TouchArtAudioIngest {
         try {
           const msg = JSON.parse(event.data);
           if ((msg.type === 'sync_update' || msg.type === 'init') && msg.data) {
+            this.lastPythonPacketTime = performance.now();
             if (msg.data.audio) {
               this.metrics = { ...this.metrics, ...msg.data.audio };
               this.isPythonLoopback = (msg.data.source === 'python_wasapi_loopback');
@@ -188,6 +189,13 @@ class TouchArtAudioIngest {
   processAudioLoop() {
     if (!this.analyser || this.isSimulating) return;
 
+    // Prevent source conflict: If Python WASAPI loopback is streaming active soundcard audio,
+    // do not let browser mic overwrite or flash against soundcard metrics!
+    if (this.isPythonLoopback && (performance.now() - (this.lastPythonPacketTime || 0) < 1000)) {
+      requestAnimationFrame(() => this.processAudioLoop());
+      return;
+    }
+
     const bufferLength = this.analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     this.analyser.getByteFrequencyData(dataArray);
@@ -202,26 +210,26 @@ class TouchArtAudioIngest {
     let trebleSum = 0, trebleCount = 0;
     let totalSum = 0;
 
-    // Musical frequency bin ranges with high-frequency pre-emphasis
-    for (let i = 0; i < bufferLength; i++) {
+    // Musical frequency bin ranges (ignoring DC bin 0)
+    for (let i = 1; i < bufferLength; i++) {
       const val = dataArray[i] / 255.0;
       totalSum += val;
 
-      if (i <= 2) {
-        // Sub-Bass (0 - ~180 Hz)
+      if (i <= 3) {
+        // Sub-Bass (20 - 90 Hz)
         subBassSum += val;
         subBassCount++;
-      } else if (i <= 8) {
-        // Punchy Bass & Kicks (~180 - ~750 Hz)
+      } else if (i <= 10) {
+        // Punchy Bass & Kicks (90 - 280 Hz)
         bassSum += val;
         bassCount++;
-      } else if (i <= 45) {
-        // Mids, Snares, Vocals (~750 - ~4200 Hz)
+      } else if (i <= 55) {
+        // Mids, Snares, Vocals (280 - 3800 Hz)
         midSum += val;
         midCount++;
-      } else if (i <= 180) {
+      } else if (i <= 200) {
         // Treble & Hi-hats with progressive psychoacoustic boost
-        const preEmphasis = 1.0 + ((i - 45) / 135.0) * 1.8;
+        const preEmphasis = 1.0 + ((i - 55) / 145.0) * 1.8;
         trebleSum += Math.min(1.0, val * preEmphasis);
         trebleCount++;
       }
@@ -231,21 +239,26 @@ class TouchArtAudioIngest {
     let rawBass = bassCount > 0 ? bassSum / bassCount : 0;
     let rawMid = midCount > 0 ? midSum / midCount : 0;
     let rawTreble = trebleCount > 0 ? trebleSum / trebleCount : 0;
-    let rawRms = totalSum / bufferLength;
+    let rawRms = totalSum / (bufferLength - 1);
     let currentPeak = Math.max(rawSubBass, rawBass, rawMid, rawTreble);
 
-    // Automatic Gain Control (AGC Peak Envelope Tracking)
+    // Automatic Gain Control with Squelch Gate
+    let agcMultiplier = 1.0;
     if (this.enableAGC) {
-      if (currentPeak > this.peakEnvelope) {
-        this.peakEnvelope = Math.min(1.0, currentPeak);
+      if (currentPeak < 0.005) {
+        // Noise floor gate
+        agcMultiplier = 0.0;
       } else {
-        this.peakEnvelope = Math.max(0.06, this.peakEnvelope * 0.993); // Musical decay envelope
+        if (currentPeak > this.peakEnvelope) {
+          this.peakEnvelope = Math.min(1.0, currentPeak);
+        } else {
+          this.peakEnvelope = Math.max(0.10, this.peakEnvelope * 0.995);
+        }
+        agcMultiplier = (1.0 / this.peakEnvelope) * this.masterGain;
       }
     } else {
-      this.peakEnvelope = 0.5;
+      agcMultiplier = this.masterGain;
     }
-
-    const agcMultiplier = (1.0 / this.peakEnvelope) * this.masterGain;
 
     // Organic Asymmetric Smoothing (Fast attack, graceful silky decay)
     const targetSubBass = Math.min(1.0, Math.pow(rawSubBass * agcMultiplier, 1.15));
@@ -270,7 +283,7 @@ class TouchArtAudioIngest {
     this.bassAvg = this.bassAvg * 0.94 + instantBass * 0.06;
 
     this.beatDecay = Math.max(0.0, this.beatDecay * 0.91);
-    if (instantBass > this.bassAvg * 1.30 && instantBass > 0.03 && this.beatDecay < 0.45 && (now - this.lastBeatTime > 180)) {
+    if (instantBass > this.bassAvg * 1.30 && instantBass > 0.03 && this.beatDecay < 0.45 && (now - this.lastBeatTime > 180) && agcMultiplier > 0) {
       this.beatDecay = Math.min(1.0, this.beatDecay * 0.4 + 0.6);
       this.lastBeatTime = now;
     }
@@ -283,8 +296,23 @@ class TouchArtAudioIngest {
     this.metrics.lfoSine = Math.sin(this.rhythmPhase) * 0.5 + 0.5;
     this.metrics.lfoSaw = (this.rhythmPhase / (Math.PI * 2.0));
 
+    // 64-Band EQ array mapped logarithmically across bufferLength bins
+    const eqArray = new Uint8Array(64);
+    for (let b = 0; b < 64; b++) {
+      const binStart = Math.max(1, Math.floor(Math.pow(bufferLength, b / 64.0)));
+      const binEnd = Math.max(binStart + 1, Math.floor(Math.pow(bufferLength, (b + 1) / 64.0)));
+      let bSum = 0, bCnt = 0;
+      for (let k = binStart; k < binEnd && k < bufferLength; k++) {
+        bSum += dataArray[k];
+        bCnt++;
+      }
+      const bAvg = bCnt > 0 ? bSum / bCnt : 0;
+      const tilt = 1.0 + Math.pow(b / 63.0, 1.2) * 2.5;
+      eqArray[b] = Math.min(255, Math.floor(bAvg * (agcMultiplier / this.masterGain) * tilt));
+    }
+
     if (this.onMetricsCallback) {
-      this.onMetricsCallback(this.metrics, dataArray);
+      this.onMetricsCallback(this.metrics, eqArray);
     }
 
     requestAnimationFrame(() => this.processAudioLoop());

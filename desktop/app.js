@@ -165,8 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < bands; i++) {
       let rawVal = 0;
       if (eqFftData && eqFftData.length > 0) {
-        // Map band to FFT bins (logarithmic-ish distribution)
-        const binIndex = Math.min(Math.floor(i * eqFftData.length / bands), eqFftData.length - 1);
+        const binIndex = i < eqFftData.length ? i : Math.min(Math.floor(i * eqFftData.length / bands), eqFftData.length - 1);
         rawVal = eqFftData[binIndex] / 255.0;
       }
 
@@ -837,20 +836,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // FFT Spectrum Renderer (thin overlay on canvas)
-  function drawSpectrumOverlay(fftData) {
-    spectrumOverlay.width = spectrumOverlay.clientWidth * window.devicePixelRatio;
-    spectrumOverlay.height = spectrumOverlay.clientHeight * window.devicePixelRatio;
-    const w = spectrumOverlay.width;
-    const h = spectrumOverlay.height;
+  // FFT Spectrum Renderer (smooth ambient overlay on viewport bottom)
+  function drawSpectrumOverlay() {
+    if (!spectrumOverlay) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = spectrumOverlay.clientWidth * dpr;
+    const h = spectrumOverlay.clientHeight * dpr;
+    if (w === 0 || h === 0) return;
+
+    if (spectrumOverlay.width !== w || spectrumOverlay.height !== h) {
+      spectrumOverlay.width = w;
+      spectrumOverlay.height = h;
+    }
 
     specCtx.clearRect(0, 0, w, h);
-    const barWidth = w / 64;
+    const bands = 64;
+    const barWidth = w / bands;
 
-    for (let i = 0; i < 64; i++) {
-      const val = (fftData[i * 4] / 255) * h;
-      specCtx.fillStyle = 'rgba(0, 240, 255, 0.3)';
-      specCtx.fillRect(i * barWidth, h - val, barWidth - 1, val);
+    for (let i = 0; i < bands; i++) {
+      const val = eqSmoothedBars[i] || 0;
+      if (val < 0.01) continue;
+      const barHeight = val * h * 0.95;
+      const hue = 180 - (i / bands) * 200;
+      specCtx.fillStyle = `hsla(${hue}, 85%, 55%, 0.35)`;
+      specCtx.fillRect(i * barWidth, h - barHeight, barWidth - 1, barHeight);
     }
   }
 
@@ -887,13 +896,11 @@ document.addEventListener('DOMContentLoaded', () => {
     shaderEngine.render();
     fpsCounter.textContent = `${shaderEngine.currentFps} FPS`;
 
-    // Draw EQ Visualizer
+    // Draw EQ Visualizer (footer)
     drawEQVisualizer();
 
-    // Draw spectrum overlay if we have data
-    if (eqFftData) {
-      drawSpectrumOverlay(eqFftData);
-    }
+    // Draw spectrum overlay (viewport bottom)
+    drawSpectrumOverlay();
 
     // Debug frame timing
     if (debugVisible) {
