@@ -94,9 +94,14 @@ class TouchArtShaderEngine {
     if (this.fbo) gl.deleteFramebuffer(this.fbo);
     if (this.fboTexture) gl.deleteTexture(this.fboTexture);
 
+    // Support HDR floating point textures if available, otherwise fallback to RGBA8
+    const extFloat = gl.getExtension('EXT_color_buffer_float');
+    const internalFormat = extFloat ? gl.RGBA16F : gl.RGBA8;
+    const type = extFloat ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE;
+
     this.fboTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.fboTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, gl.RGBA, type, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -105,6 +110,12 @@ class TouchArtShaderEngine {
     this.fbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.fboTexture, 0);
+
+    const fboStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (fboStatus !== gl.FRAMEBUFFER_COMPLETE) {
+      console.warn('[Shader Engine] FBO incomplete with HDR, falling back to RGBA8:', fboStatus);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     this.fboWidth = width;
