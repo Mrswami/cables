@@ -1,0 +1,1292 @@
+[
+  {
+    "name": "Adala",
+    "url": "https://github.com/HumanSignal/Adala",
+    "description": "Adala: Autonomous Data (Labeling) Agent framework",
+    "category": "General purpose, Build your own, Multi-agent"
+  },
+  {
+    "name": "Agent4Rec",
+    "url": "https://github.com/LehengTHU/Agent4Rec",
+    "description": "Recommender system simulator with 1,000 agents",
+    "category": "General purpose, Build your own, Multi-agent"
+  },
+  {
+    "name": "AgentForge",
+    "url": "https://github.com/DataBassGit/AgentForge",
+    "description": "LLM-agnostic platform for agent building & testing",
+    "category": "General purpose, Build your own, Multi-agent"
+  },
+  {
+    "name": "AgentGPT",
+    "url": "https://agentgpt.reworkd.ai/",
+    "description": "Browser-based no-code version of AutoGPT",
+    "category": "General purpose"
+  },
+  {
+    "name": "AgentPilot",
+    "url": "https://github.com/jbexta/AgentPilot",
+    "description": "Build, manage, and chat with agents in desktop app",
+    "category": "General purpose"
+  },
+  {
+    "name": "Agents",
+    "url": "https://github.com/aiwaves-cn/agents",
+    "description": "",
+    "category": "General purpose, Build your own, Multi-agent"
+  },
+  {
+    "name": "AgentVerse",
+    "url": "https://github.com/OpenBMB/AgentVerse",
+    "description": "Platform for task-solving & simulation agents",
+    "category": "General purpose, Build your own, Multi-agent"
+  },
+  {
+    "name": "AI Legion",
+    "url": "https://github.com/eumemic/ai-legion",
+    "description": "Multi-agent TS platform, similar to AutoGPT",
+    "category": "Multi-agent, Build-your-own"
+  },
+  {
+    "name": "Aider",
+    "url": "https://github.com/paul-gauthier/aider",
+    "description": "Use command line to edit code in your local repo",
+    "category": "Coding, GitHub"
+  },
+  {
+    "name": "AIlice",
+    "url": "https://github.com/myshell-ai/AIlice",
+    "description": "Create agents-calling tree to execute your tasks",
+    "category": "General purpose, Personal assistant, Productivity"
+  },
+  {
+    "name": "AutoGen",
+    "url": "https://github.com/microsoft/autogen",
+    "description": "Multi-agent framework with diversity of agents",
+    "category": "General purpose, Build your own, Multi-agent"
+  },
+  {
+    "name": "AutoGPT",
+    "url": "https://agpt.co/?utm_source=awesome-ai-agents",
+    "description": "Experimental attempt to make GPT4 fully autonomous",
+    "category": "General purpose"
+  },
+  {
+    "name": "Automata",
+    "url": "https://github.com/emrgnt-cmplxty/automata",
+    "description": "Generate code based on your project context",
+    "category": "Coding"
+  },
+  {
+    "name": "AutoPR",
+    "url": "https://github.com/irgolic/AutoPR",
+    "description": "AI-generated pull requests agent that fixes issues",
+    "category": "Coding, GitHub"
+  },
+  {
+    "name": "Autonomous HR Chatbot",
+    "url": "https://github.com/stepanogil/autonomous-hr-chatbot",
+    "description": "Agent that answers HR-related queries using tools",
+    "category": "HR, Business intelligence, Productivity"
+  },
+  {
+    "name": "BabyAGI",
+    "url": "https://github.com/yoheinakajima/babyagi",
+    "description": "A simple framework for managing tasks using AI",
+    "category": "General purpose"
+  },
+  {
+    "name": "BabyBeeAGI",
+    "url": "https://yoheinakajima.com/babybeeagi-task-management-and-functionality-expansion-on-top-of-babyagi/",
+    "description": "Task management & functionality BabyAGI expansion",
+    "category": "General purpose, Productivity"
+  },
+  {
+    "name": "BabyCatAGI",
+    "url": "https://replit.com/@YoheiNakajima/BabyCatAGI",
+    "description": "BabyCatAGI is a mod of BabyBeeAGI",
+    "category": "General purpose"
+  },
+  {
+    "name": "BabyDeerAGI",
+    "url": "https://twitter.com/yoheinakajima/status/1666313838868992001",
+    "description": "Mod of BabyAGI with only ~350 lines of code",
+    "category": "General purpose"
+  },
+  {
+    "name": "BabyElfAGI",
+    "url": "https://twitter.com/yoheinakajima/status/1678443482866933760",
+    "description": "Mod of BabyDeerAGI, with ~895 lines of code",
+    "category": "General purpose"
+  },
+  {
+    "name": "BabyCommandAGI",
+    "url": "https://github.com/saten-private/BabyCommandAGI",
+    "description": "Test what happens when you combine CLI and LLM",
+    "category": "General purpose, Coding"
+  },
+  {
+    "name": "BabyFoxAGI",
+    "url": "https://github.com/yoheinakajima/babyagi/tree/main/classic/babyfoxagi",
+    "description": "Mod of BabyAGI with a new parallel UI panel",
+    "category": "General purpose"
+  },
+  {
+    "name": "BambooAI",
+    "url": "https://github.com/pgalko/BambooAI",
+    "description": "Data exploration and analysis for non-programmers",
+    "category": "Data analysis"
+  },
+  {
+    "name": "BeeBot",
+    "url": "https://github.com/AutoPackAI/beebot",
+    "description": "Early-stage project for wide range of tasks",
+    "category": "General purpose, Productivity"
+  },
+  {
+    "name": "Blinky",
+    "url": "https://github.com/seahyinghang8/blinky",
+    "description": "An open-source AI debugging agent for VSCode",
+    "category": "Coding, Debugging"
+  },
+  {
+    "name": "Bloop",
+    "url": "https://bloop.ai/",
+    "description": "AI code search, works for Rust and Typescript",
+    "category": "Coding"
+  },
+  {
+    "name": "BondAI",
+    "url": "https://bondai.dev/",
+    "description": "Code interpreter with CLI & RESTful/WebSocket API",
+    "category": "Coding"
+  },
+  {
+    "name": "bumpgen",
+    "url": "https://github.com/xeol-io/bumpgen",
+    "description": "AI agent that keeps npm dependencies up-to-date",
+    "category": "Coding"
+  },
+  {
+    "name": "Cal.ai",
+    "url": "https://cal.ai",
+    "description": "Open-source scheduling assistant built on Cal.com",
+    "category": "Productivity"
+  },
+  {
+    "name": "CAMEL",
+    "url": "https://github.com/camel-ai/camel",
+    "description": "Architecture for \u201cMind\u201d Exploration of agents",
+    "category": "General purpose"
+  },
+  {
+    "name": "ChatArena",
+    "url": "https://www.chatarena.org/",
+    "description": "A chat tool for multi agent interaction",
+    "category": "Design, Build-your-own, SDK for AI apps, Multi-agent"
+  },
+  {
+    "name": "ChatDev",
+    "url": "https://github.com/OpenBMB/ChatDev",
+    "description": "Communicative agents for software development",
+    "category": "Coding, Multi-agent"
+  },
+  {
+    "name": "ChemCrow",
+    "url": "https://github.com/ur-whitelab/chemcrow-public",
+    "description": "LangChain agent for chemistry-related tasks",
+    "category": "Science, Chemistry"
+  },
+  {
+    "name": "Clippy",
+    "url": "https://github.com/ennucore/clippy/",
+    "description": "Agent that can plan, write, debug, and test code",
+    "category": "Coding"
+  },
+  {
+    "name": "CodeFuse-ChatBot",
+    "url": "https://github.com/codefuse-ai/codefuse-chatbot",
+    "description": "Agent serving entire SW development lifecycle",
+    "category": "Coding"
+  },
+  {
+    "name": "Cody by ajhous44",
+    "url": "https://github.com/ajhous44/cody",
+    "description": "Query and navigate your codebase",
+    "category": "Coding"
+  },
+  {
+    "name": "Cody by Sourcegraph",
+    "url": "https://docs.sourcegraph.com/cody",
+    "description": "Agent that writes code and answers your questions",
+    "category": "Coding"
+  },
+  {
+    "name": "Continue",
+    "url": "https://continue.dev/",
+    "description": "Open-source autopilot for software development",
+    "category": "Coding"
+  },
+  {
+    "name": "CrewAI",
+    "url": "https://github.com/joaomdmoura/crewai",
+    "description": "Framework for orchestrating role-playing agents",
+    "category": "Build-your-own, SDK for agents, Multi-agent"
+  },
+  {
+    "name": "data-to-paper",
+    "url": "https://github.com/Technion-Kishony-lab/data-to-paper",
+    "description": "AI-driven research from data to human-verifiable research papers",
+    "category": "Science, Research, Multi-agent"
+  },
+  {
+    "name": "Databerry",
+    "url": "https://www.databerry.ai/",
+    "description": "(Pivoted to Chaindesk) No-code chatbot building",
+    "category": "Build-your-own"
+  },
+  {
+    "name": "DemoGPT",
+    "url": "https://github.com/melih-unsal/DemoGPT",
+    "description": "Generates demo of a new app (of any purpose)",
+    "category": "Build-your-own, General purpose"
+  },
+  {
+    "name": "DevGPT",
+    "url": "https://github.com/jina-ai/dev-gpt",
+    "description": "Team of virtual developers",
+    "category": "Coding, Multi-agent"
+  },
+  {
+    "name": "Devika",
+    "url": "https://github.com/stitionai/devika",
+    "description": "Agentic AI Software Engineer",
+    "category": "Coding, general purpose"
+  },
+  {
+    "name": "Devon",
+    "url": "https://github.com/entropy-research/Devon",
+    "description": "Open-source Devin alternative",
+    "category": "Coding, general purpose"
+  },
+  {
+    "name": "DevOpsGPT",
+    "url": "https://github.com/kuafuai/DevOpsGPT",
+    "description": "AI-Driven SW Development Automation Solution",
+    "category": "Coding"
+  },
+  {
+    "name": "dotagent",
+    "url": "https://github.com/dot-agent/dotagent",
+    "description": "Deploy agents on cloud, PCs, or mobile devices",
+    "category": "Build-your-own"
+  },
+  {
+    "name": "Eidolon",
+    "url": "https://eidolonai.com/",
+    "description": "Multi Agent SDK with pluggable, modular components",
+    "category": "Build-your-own (agent-builing frameworks and platforms), SDK for AI apps"
+  },
+  {
+    "name": "English Compiler",
+    "url": "https://github.com/uilicious/english-compiler",
+    "description": "Converting markdown specs into functional code",
+    "category": "Coding"
+  },
+  {
+    "name": "evo.ninja",
+    "url": "https://evo.ninja/",
+    "description": "AI agent that adapts its persona to achive tasks",
+    "category": "General purpose, Research, Multi-agent"
+  },
+  {
+    "name": "FastAgency",
+    "url": "https://fastagency.ai/latest/",
+    "description": "The fastest way to deploy multi-agent workflows",
+    "category": "Build-your-own (agent-builing frameworks and platforms), SDK for AI apps, Multi-agent, Supports open-source models"
+  },
+  {
+    "name": "Flowise",
+    "url": "https://flowiseai.com/",
+    "description": "Low code Agent builder",
+    "category": "Build-your-own (agent-builing frameworks and platforms)"
+  },
+  {
+    "name": "Friday",
+    "url": "https://github.com/amirrezasalimi/friday/",
+    "description": "AI developer assistant for Node.js",
+    "category": "Coding"
+  },
+  {
+    "name": "GeniA",
+    "url": "https://github.com/genia-dev/GeniA",
+    "description": "Engineering platform engineering AI team member",
+    "category": "Coding"
+  },
+  {
+    "name": "Godmode",
+    "url": "https://godmode.space/",
+    "description": "Inspired by AutoGPT and BabyAGI, with nice UI",
+    "category": "General purpose"
+  },
+  {
+    "name": "GPT Discord",
+    "url": "https://github.com/Kav-K/GPTDiscord",
+    "description": "The ultimate AI agent integration for Discord",
+    "category": "Content creation, Productivity, General purpose, Discord"
+  },
+  {
+    "name": "GPT Engineer",
+    "url": "https://gptengineer.app/",
+    "description": "Generates entire codebase based on a prompt",
+    "category": "Coding"
+  },
+  {
+    "name": "GPT Migrate",
+    "url": "https://github.com/0xpayne/gpt-migrate",
+    "description": "Migrate codebase between frameworks/languages",
+    "category": "Coding"
+  },
+  {
+    "name": "GPT Pilot",
+    "url": "https://github.com/Pythagora-io/gpt-pilot",
+    "description": "Code the entire scalable app from scratch",
+    "category": "Coding"
+  },
+  {
+    "name": "GPT Researcher",
+    "url": "https://github.com/assafelovic/gpt-researcher",
+    "description": "Agent that researches entire internet on any topic",
+    "category": "Research, Science"
+  },
+  {
+    "name": "GPT Runner",
+    "url": "https://github.com/nicepkg/gpt-runner",
+    "description": "Agent that converses with your files",
+    "category": "Research, Science"
+  },
+  {
+    "name": "GPTSwarm",
+    "url": "https://gptswarm.org/",
+    "description": "Language Agents as Optimizable Graphs",
+    "category": "Build-your-own (agent-builing frameworks and platforms), General purpose, Multi-agent"
+  },
+  {
+    "name": "IX",
+    "url": "https://github.com/kreneskyp/ix",
+    "description": "Agents building, debugging, and deploying platform",
+    "category": "Build your own, Multi-agent"
+  },
+  {
+    "name": "JARVIS",
+    "url": "https://github.com/microsoft/JARVIS",
+    "description": "System that connects LLMs with the ML community",
+    "category": "General purpose"
+  },
+  {
+    "name": "Langroid",
+    "url": "https://github.com/langroid/langroid",
+    "description": "Multi-agent framework for building LLM apps",
+    "category": "General purpose, Build your own"
+  },
+  {
+    "name": "Lemon Agent",
+    "url": "https://github.com/felixbrock/lemon-agent",
+    "description": "Plan-Validate-Solve agent for workflow automation",
+    "category": "Productivity, Coding"
+  },
+  {
+    "name": "LLM Agents",
+    "url": "https://github.com/mpaepper/llm_agents",
+    "description": "Library for building agents, using tools, planning",
+    "category": "Coding"
+  },
+  {
+    "name": "LLM Stack",
+    "url": "https://llmstack.ai/",
+    "description": "No-code platform to build LLM Agents",
+    "category": "Build-your-own, no-code, web UI"
+  },
+  {
+    "name": "Local GPT",
+    "url": "https://github.com/PromtEngineer/localGPT",
+    "description": "Chat with documents without compromising privacy",
+    "category": "Research, Data analysis, General purpose"
+  },
+  {
+    "name": "Loop GPT",
+    "url": "https://github.com/farizrahman4u/loopgpt/tree/main",
+    "description": "Re-implementation of AutoGPT as a Python package",
+    "category": "General purpose"
+  },
+  {
+    "name": "L2MAC",
+    "url": "https://github.com/samholt/l2mac",
+    "description": "Agent framework able to produce large complex codebases and entire books",
+    "category": "Multi-agent, Coding, Build your own"
+  },
+  {
+    "name": "Maige",
+    "url": "https://maige.app",
+    "description": "Natural-language workflows for your GitHub repo.",
+    "category": "Coding, Productivity, Debugging, Multi-agent"
+  },
+  {
+    "name": "Magick",
+    "url": "https://www.magickml.com/",
+    "description": "AIDE for creating, deploying, monetizing agents",
+    "category": "Coding, SDK for agents, Build-your-own"
+  },
+  {
+    "name": "MemFree",
+    "url": "https://github.com/memfreeme/memfree",
+    "description": "Open Source Hybrid AI Search Engine",
+    "category": "Open Source, AI Search, Build your own"
+  },
+  {
+    "name": "MemGPT",
+    "url": "https://github.com/cpacker/MemGPT",
+    "description": "Memory management system, providing context to LLM",
+    "category": "Memory management, Data analysis"
+  },
+  {
+    "name": "Mentat",
+    "url": "https://github.com/biobootloader/mentat",
+    "description": "Assists you with coding task from command line",
+    "category": "Coding"
+  },
+  {
+    "name": "MetaGPT",
+    "url": "https://github.com/geekan/MetaGPT",
+    "description": "Agent framework returning Design, Tasks, or Repo",
+    "category": "Multi-agent, Coding, Build your own"
+  },
+  {
+    "name": "Mini AGI",
+    "url": "https://github.com/muellerberndt/mini-agi",
+    "description": "General-purpose agent based on GPT-3.5 / GPT-4",
+    "category": "General purpose"
+  },
+  {
+    "name": "Multiagent Debate",
+    "url": "https://github.com/composable-models/llm_multiagent_debate",
+    "description": "Implementation of a paper on Multiagent Debate",
+    "category": "General purpose, Multi-agent"
+  },
+  {
+    "name": "Multi GPT",
+    "url": "https://github.com/rumpfmax/Multi-GPT",
+    "description": "Experimental multi-agent system",
+    "category": "General purpose"
+  },
+  {
+    "name": "MutahunterAI",
+    "url": "https://github.com/codeintegrity-ai/mutahunter",
+    "description": "MutahunterAI: Accelerate developer productivity and code security with our open-source AI",
+    "category": "Developer tools, Software security, Multi-agent, General purpose"
+  },
+  {
+    "name": "NLSOM",
+    "url": "https://github.com/mczhuge/NLSOM",
+    "description": "Natural Language-Based Societies of Mind",
+    "category": "Science, Multimodal, Social, Multi-agent"
+  },
+  {
+    "name": "OpenAgents",
+    "url": "https://github.com/xlang-ai/OpenAgents",
+    "description": "Multi-agent general purpose platform",
+    "category": "General purpose"
+  },
+  {
+    "name": "OpenAGI",
+    "url": "https://github.com/agiresearch/OpenAGI",
+    "description": "R&D agents platform",
+    "category": "General purpose"
+  },
+  {
+    "name": "OpenDevin",
+    "url": "https://github.com/OpenDevin/OpenDevin",
+    "description": "OpenDevin: Code Less, Make More",
+    "category": "Coding, general purpose"
+  },
+  {
+    "name": "Open Interpreter",
+    "url": "https://openinterpreter.com/",
+    "description": "Code interpreter that lets LLMs execute code",
+    "category": "Coding"
+  },
+  {
+    "name": "Pezzo",
+    "url": "https://www.pezzo.ai/",
+    "description": "Development toolkit for prompt management & more",
+    "category": "Coding"
+  },
+  {
+    "name": "Private GPT",
+    "url": "https://www.privategpt.io/",
+    "description": "Tool for private interaction with your documents",
+    "category": "Research, Data analysis"
+  },
+  {
+    "name": "PromethAI",
+    "url": "https://github.com/topoteretes/PromethAI-Backend",
+    "description": "AI agent that helps with nutrition and other goals",
+    "category": "Productivity, General purpose"
+  },
+  {
+    "name": "React Agent",
+    "url": "https://reactagent.io/",
+    "description": "Open-source React.js Autonomous LLM Agent",
+    "category": "Coding"
+  },
+  {
+    "name": "Self-operating computer",
+    "url": "https://www.hyperwriteai.com/self-operating-computer",
+    "description": "Let multimodal models operate a computer",
+    "category": "Productivity, Research"
+  },
+  {
+    "name": "Smol developer",
+    "url": "https://github.com/smol-ai/developer",
+    "description": "Your own junior AI developer, deployed via E2B UI",
+    "category": "Coding"
+  },
+  {
+    "name": "Stackwise",
+    "url": "https://github.com/stackwiseai/stackwise",
+    "description": "VSCode extension that writes nodejs functions",
+    "category": "Tool for agents, Coding"
+  },
+  {
+    "name": "Superagent",
+    "url": "https://www.superagent.sh/",
+    "description": "Tool that allows creating agents without coding",
+    "category": "Build-your-own, General purpose, Data analysis"
+  },
+  {
+    "name": "SuperAGI",
+    "url": "https://superagi.com/",
+    "description": "Framework to develop and deploy AI agents",
+    "category": "General purpose"
+  },
+  {
+    "name": "Suspicion Agent",
+    "url": "https://github.com/CR-Gjx/Suspicion-Agent",
+    "description": "Paper on imperfect information games",
+    "category": "General purpose"
+  },
+  {
+    "name": "SWE Agent",
+    "url": "https://github.com/princeton-nlp/SWE-agent",
+    "description": "Open-source Devin alternative",
+    "category": "Coding, general purpose"
+  },
+  {
+    "name": "Sweep",
+    "url": "https://sweep.dev/",
+    "description": "Github assistant that fixes issues & writes code",
+    "category": "Coding, GitHub"
+  },
+  {
+    "name": "Taxy AI",
+    "url": "https://github.com/TaxyAI/browser-extension",
+    "description": "Taxy AI is a full browser automation",
+    "category": "General purpose, Productivity"
+  },
+  {
+    "name": "Teenage AGI",
+    "url": "https://github.com/seanpixel/Teenage-AGI/blob/main/README.md#experiments",
+    "description": "BabyAGI-inspired agent, can recall infinite memory",
+    "category": "General purpose"
+  },
+  {
+    "name": "UFO",
+    "url": "https://github.com/microsoft/UFO",
+    "description": "A UI-Focused agent on Windows OS",
+    "category": "Multi-agent, GUI Agent"
+  },
+  {
+    "name": "Vanna.AI",
+    "url": "https://vanna.ai/",
+    "description": "Python-based AI SQL agent trained on your schema",
+    "category": "Coding, Debugging, Code migration, Data analysis"
+  },
+  {
+    "name": "Voyager",
+    "url": "https://voyager.minedojo.org/",
+    "description": "LLM-powered lifelong learning agent in Minecraft",
+    "category": "General purpose"
+  },
+  {
+    "name": "Web3 GPT",
+    "url": "https://w3gpt.ai/",
+    "description": "Write & deploy smart contracts to EVM blockchains",
+    "category": "Blockchain, Coding, Generating apps, Smart contract"
+  },
+  {
+    "name": "\u201cWestworld\u201d simulation",
+    "url": "https://theolvs.github.io/westworld/",
+    "description": "A multi-agent environment simulation library",
+    "category": "General purpose, Multi-agent"
+  },
+  {
+    "name": "WorkGPT",
+    "url": "https://github.com/team-openpm/workgpt",
+    "description": "GPT agent framework for invoking APIs",
+    "category": "Coding"
+  },
+  {
+    "name": "Wren",
+    "url": "https://www.getwren.ai/",
+    "description": "Natural Language Interface to Your Databases",
+    "category": "Coding, Data analysis, Productivity"
+  },
+  {
+    "name": "XAgent",
+    "url": "https://github.com/OpenBMB/XAgent",
+    "description": "Experimental LLM agent that solves various tasks",
+    "category": "General purpose, Coding"
+  },
+  {
+    "name": "yAgents",
+    "url": "https://github.com/yeagerai/yeagerai-agent",
+    "description": "Capable of designing, coding and debugging tools",
+    "category": "Coding, Build-your-own"
+  },
+  {
+    "name": "Yourgoal",
+    "url": "https://github.com/pj4533/yourgoal/?utm_source=awesome-ai-agents",
+    "description": "Swift implementation of BabyAGI",
+    "category": "General purpose"
+  },
+  {
+    "name": "Ability AI",
+    "url": "https://ability.ai/",
+    "description": "Secure, People-Centric Autonomous AI Agents",
+    "category": "General purpose, Productivity, Business intelligence"
+  },
+  {
+    "name": "Adept AI",
+    "url": "https://www.adept.ai/?utm_source=awesome-ai-agents",
+    "description": "ML research and product lab building intelligence",
+    "category": "General purpose"
+  },
+  {
+    "name": "AGENTS.inc",
+    "url": "https://www.agents.inc/",
+    "description": "Agents for company/regulations, search&monitoring",
+    "category": "Data analysis, Science, Monitoring, General purpose, Business intelligence, Supports open-source models"
+  },
+  {
+    "name": "AgentScale",
+    "url": "https://agentscale.ai/",
+    "description": "Your assistant, email writer, calendar scheduler",
+    "category": "General purpose, Productivity"
+  },
+  {
+    "name": "Aide by Codestory",
+    "url": "https://codestory.ai/",
+    "description": "AI code interpreter, AI-powered mod of VSCode",
+    "category": "Coding"
+  },
+  {
+    "name": "AilaFlow",
+    "url": "https://ailaflow.com",
+    "description": "No-code platform for building AI agents",
+    "category": "Build-your-own, Productivity"
+  },
+  {
+    "name": "Airkit.ai",
+    "url": "https://www.airkit.ai",
+    "description": "Platform for building, testing, deploying Agents",
+    "category": "Build-your-own"
+  },
+  {
+    "name": "Airplane Autopilot",
+    "url": "https://www.airplane.dev/autopilot/?utm_source=awesome-ai-agents/",
+    "description": "Autopilot AI assistant of the Airplane company",
+    "category": "Coding, General purpose"
+  },
+  {
+    "name": "Aomni",
+    "url": "https://www.aomni.com/?utm_source=awesome-ai-agents",
+    "description": "AI agent designed for business intelligence",
+    "category": "Business intelligence"
+  },
+  {
+    "name": "APIDNA",
+    "url": "https://apidna.ai/",
+    "description": "Multiple AI Agents for the integration of APIs.",
+    "category": "Productivity, Multi-agent, Coding"
+  },
+  {
+    "name": "Artisian AI",
+    "url": "https://github.com/Artisan-AI",
+    "description": "Agents for sales, e-mails, book keeping & more",
+    "category": "Multi-agent, Build-your-own"
+  },
+  {
+    "name": "Ask Pandi",
+    "url": "https://askpandi.com/ask",
+    "description": "Answer engine to search and generate knowledge",
+    "category": "Productivity, Research, General purpose"
+  },
+  {
+    "name": "AskToSell",
+    "url": "https://asktosell.com/",
+    "description": "Meet autonomous AI sales agents that close deals",
+    "category": "Sales, Build-your-own, Business intelligence, Marketing"
+  },
+  {
+    "name": "AskYourDatabase",
+    "url": "https://www.askyourdatabase.com/",
+    "description": "Chat with SQL database, explore and visualize data",
+    "category": "Business intelligence, Productivity, Data analysis"
+  },
+  {
+    "name": "Athena Intelligence",
+    "url": "https://www.athenaintelligence.ai/",
+    "description": "24/7 Enterprise AI Data Analyst",
+    "category": "Data analysis, Business intelligence"
+  },
+  {
+    "name": "Avanzai",
+    "url": "https://avanz.ai/",
+    "description": "AI agents for portfolio risk and asset allocation",
+    "category": "Coding, Data analysis, Research, Build-your-own (agent-builing frameworks and platforms), Finance, Multi-agent"
+  },
+  {
+    "name": "Bardeen",
+    "url": "https://www.bardeen.ai/",
+    "description": "AI Agent for automating repetitive tasks",
+    "category": "Productivity, Sales"
+  },
+  {
+    "name": "Beam",
+    "url": "https://beam.ai/",
+    "description": "A wide selection of AI agents automating workflows",
+    "category": "Data analysis, Productivity, Build-your-own (agent-builing frameworks and platforms), Business intelligence, Multi-agent"
+  },
+  {
+    "name": "Blackbox AI",
+    "url": "https://www.blackbox.ai/",
+    "description": "Software That Builds Software",
+    "category": "- General purpose, coding, data analysis"
+  },
+  {
+    "name": "Blobr",
+    "url": "https://www.blobr.io/",
+    "description": "AI business assistant connected to all your tools",
+    "category": "Data analysis, Productivity, Marketig, Sales, Business intelligence"
+  },
+  {
+    "name": "BrainSoup",
+    "url": "https://www.nurgo-software.com/products/brainsoup",
+    "description": "Build an AI team that works for you, on your PC",
+    "category": "General purpose, Productivity, Data analysis, Multi-agent, Build-your-own"
+  },
+  {
+    "name": "broadn",
+    "url": "https://www.broadn.io/?utm_source=awesome-ai-agents",
+    "description": "No-code copilot that allows users to build AI apps",
+    "category": "Coding"
+  },
+  {
+    "name": "Butternut AI",
+    "url": "https://butternut.ai/",
+    "description": "Build fully-functioning, ready-to-launch website",
+    "category": "Web design, Design, Coding, Marketing"
+  },
+  {
+    "name": "B2 AI",
+    "url": "https://www.b2.work/",
+    "description": "Autocomplete AI assistant for work",
+    "category": "Personal assistant, Business intelligence, Productivity, Data analysis"
+  },
+  {
+    "name": "ChatHelp",
+    "url": "https://chathelp.ai/",
+    "description": "AI-powered Business, Work, Study Assistant",
+    "category": "Data analysis, Content creation, Productivity, Research, Marketig, Sales, Business intelligence"
+  },
+  {
+    "name": "Claros AI Shopper",
+    "url": "https://www.claros.so/",
+    "description": "AI shopper that finds products for your taste",
+    "category": "Personal assistant"
+  },
+  {
+    "name": "Claygent",
+    "url": "https://www.clay.com/learn/claygent",
+    "description": "Agent that scrapes and summarize data from the web",
+    "category": "Productivity, Marketig, Sales, Finance, General purpose, Business intelligence"
+  },
+  {
+    "name": "Code Autopilot",
+    "url": "https://www.codeautopilot.com/",
+    "description": "AI Assistant for your project",
+    "category": "Coding, Multi-agent, GitHub"
+  },
+  {
+    "name": "Codegen",
+    "url": "https://www.codegen.com/",
+    "description": "Solve tickets, write tests, level up your workflow",
+    "category": "Coding"
+  },
+  {
+    "name": "CodeWP",
+    "url": "https://codewp.ai/",
+    "description": "AI Agent for WordPress websites",
+    "category": "Coding"
+  },
+  {
+    "name": "Codium AI",
+    "url": "https://www.codium.ai/",
+    "description": "Coding multipurpose AI assistant for developers",
+    "category": "Coding"
+  },
+  {
+    "name": "Commit",
+    "url": "https://commit.dev",
+    "description": "Career Copilot and AI Agent for SW Developers",
+    "category": "Coding"
+  },
+  {
+    "name": "Cognosys",
+    "url": "https://cognosys.ai",
+    "description": "Web-based version of AutoGPT or BabyAGI",
+    "category": "General purpose, Research"
+  },
+  {
+    "name": "ContextQA",
+    "url": "https://contextqa.com/",
+    "description": "AI Agents for Software Testing",
+    "category": "Coding"
+  },
+  {
+    "name": "Cursor",
+    "url": "https://www.cursor.so/",
+    "description": "AI-powered Code Editor with VSCode-like UI",
+    "category": "Coding"
+  },
+  {
+    "name": "Cykel",
+    "url": "https://www.cykel.ai/",
+    "description": "Interact with any UI, website or API",
+    "category": "General purpose, Productivity"
+  },
+  {
+    "name": "Devin",
+    "url": "https://www.cognition-labs.com/introducing-devin",
+    "description": "The first AI software engineer",
+    "category": "General purpose, Coding"
+  },
+  {
+    "name": "Diagram",
+    "url": "https://diagram.com/",
+    "description": "AI design tools for everyone, acquired by Figma",
+    "category": "Design, Content creation"
+  },
+  {
+    "name": "Docket AI",
+    "url": "https://docketai.net/",
+    "description": "AI Sales Engineer for somplex B2B sales",
+    "category": "Sales"
+  },
+  {
+    "name": "Dosu",
+    "url": "https://dosu.dev/",
+    "description": "GitHub repo AI teammate helping also with docs",
+    "category": "Coding, Productivity"
+  },
+  {
+    "name": "Dot",
+    "url": "https://www.getdot.ai/",
+    "description": "Virtual assistant that help with data analytics",
+    "category": "Data analysis, Business intelligence"
+  },
+  {
+    "name": "Duckie AI",
+    "url": "https://duckie.ai/",
+    "description": "Team of AI SW development companions (Ducklings)",
+    "category": "Coding, Multi-agent"
+  },
+  {
+    "name": "Ellipsis",
+    "url": "https://ellipsis.dev/?utm_source=awesome-ai-agents",
+    "description": "(Previously BitBuilder) \"Automated code reviews and bug fixes\"",
+    "category": "Coding, GitHub, GitLab"
+  },
+  {
+    "name": "encode",
+    "url": "https://encode.software",
+    "description": "Fully autonomous AI SW engineer in early stage",
+    "category": "Coding"
+  },
+  {
+    "name": "Factory",
+    "url": "https://www.factory.ai/",
+    "description": "Coding Droids for building software end-to-end",
+    "category": "Coding"
+  },
+  {
+    "name": "Fine",
+    "url": "https://www.fine.dev/",
+    "description": "Build Software with AI Agents",
+    "category": "Coding, Multi-agent, Build-your-own"
+  },
+  {
+    "name": "Fine Tuner",
+    "url": "https://fine-tuner.ai/",
+    "description": "(Pivoted to Synthflow) No-code platform for agents",
+    "category": "Build-your-own, General purpose"
+  },
+  {
+    "name": "Fixie",
+    "url": "https://www.fixie.ai/",
+    "description": "Platform for creating LLM-powered AI apps",
+    "category": "Build-your-own"
+  },
+  {
+    "name": "Floode",
+    "url": "https://floodehq.com/",
+    "description": "Executive agent automating communication busywork",
+    "category": "Productivity"
+  },
+  {
+    "name": "GitHub Copilot X",
+    "url": "https://github.com/features/preview/copilot-x",
+    "description": "AI-powered software developer",
+    "category": "Coding, GitHub"
+  },
+  {
+    "name": "GitLab Duo",
+    "url": "https://about.gitlab.com/gitlab-duo/",
+    "description": "AI for every step of SW development lifecycle",
+    "category": "Coding"
+  },
+  {
+    "name": "GitWit",
+    "url": "https://www.gitwit.dev/",
+    "description": "Automate code generation with AI. In beta version",
+    "category": "Coding"
+  },
+  {
+    "name": "GoCharlie",
+    "url": "https://gocharlie.ai/",
+    "description": "Multimodal content creation autonomous agent",
+    "category": "Content creation, General purpose"
+  },
+  {
+    "name": "Graphlit",
+    "url": "https://www.graphlit.com/",
+    "description": "API-first data platform for building apps with AI",
+    "category": "Coding"
+  },
+  {
+    "name": "Grit",
+    "url": "https://www.grit.io/",
+    "description": "Automating code migrations and dependency upgrades",
+    "category": "Coding"
+  },
+  {
+    "name": "Gumloop",
+    "url": "https://www.gumloop.com/",
+    "description": "Automate any workflow",
+    "category": "Productivity, data analysis, general purpose, marketing, legal, sales, HR, finance, education"
+  },
+  {
+    "name": "Heights Platform",
+    "url": "https://www.heightsplatform.com/",
+    "description": "For course creators, community builders & coaches",
+    "category": "Productivity"
+  },
+  {
+    "name": "Hex Magic",
+    "url": "https://hex.tech/product/magic-ai/",
+    "description": "AI tools for doing amazing things with data",
+    "category": "Coding, Data analysis"
+  },
+  {
+    "name": "Heymoon.ai",
+    "url": "https://heymoon.ai/",
+    "description": "Keep you on top of your calendar, tasks and info",
+    "category": "Productivity"
+  },
+  {
+    "name": "iMean.AI",
+    "url": "https://www.imean.ai/",
+    "description": "AI personal assistant that automates browser task",
+    "category": "Productivity, Daily life, Build-your-own (agent-builing frameworks and platforms)"
+  },
+  {
+    "name": "Input",
+    "url": "https://useinput.com/",
+    "description": "AI-powered teammate that can collaborate on code",
+    "category": "Coding, Multi-agent, GitHub"
+  },
+  {
+    "name": "Instrukt",
+    "url": "https://github.com/blob42/Instrukt",
+    "description": "Terminal env for interacting with with AI agents",
+    "category": "Coding, Build-your-own"
+  },
+  {
+    "name": "Invicta",
+    "url": "https://invictai.io/",
+    "description": "Build your first team of Autonomous AI Agents",
+    "category": "Build-your-own (agent-builing frameworks and platforms), Multi-agent"
+  },
+  {
+    "name": "Julius",
+    "url": "https://julius.ai/",
+    "description": "AI data processing, analysis, and visualization",
+    "category": "Data analysis"
+  },
+  {
+    "name": "Kadoa",
+    "url": "https://www.kadoa.com/",
+    "description": "Web Scraping on Autopilot with AI",
+    "category": "Coding, Data analysis"
+  },
+  {
+    "name": "Juno",
+    "url": "https://heyjuno.co/",
+    "description": "AI-led user interviews for rich human insights",
+    "category": "Data analysis, Research, Business intelligence, web UI"
+  },
+  {
+    "name": "Kompas AI",
+    "url": "https://kompas.ai/",
+    "description": "Pick your LLM & build custom conversational agent",
+    "category": "Productivity, Build-your-own, Business intelligence"
+  },
+  {
+    "name": "Kusho",
+    "url": "https://kusho.ai/",
+    "description": "AI agent for API testing",
+    "category": "Coding, Productivity, Debugging"
+  },
+  {
+    "name": "Kwal",
+    "url": "https://www.kwal.ai/",
+    "description": "Voice Agents for Recruiting",
+    "category": "Productivity"
+  },
+  {
+    "name": "Lindy",
+    "url": "https://www.lindy.ai/",
+    "description": "AI assistant that can help with daily tasks",
+    "category": "Productivity"
+  },
+  {
+    "name": "Lutra AI",
+    "url": "https://lutra.ai/",
+    "description": "Platform for creating AI workflows and apps",
+    "category": "General purpose, Business intelligence, Productivity, Content creation"
+  },
+  {
+    "name": "Magic Loops",
+    "url": "https://magicloops.dev/",
+    "description": "Personal automations made easy",
+    "category": "Coding, Content creation, Productivity, Build-your-own (agent-builing frameworks and platforms), SDK for AI apps, Art, Marketig, Sales, Finance, General purpose, Personal computing"
+  },
+  {
+    "name": "Makedraft",
+    "url": "https://makedraft.com/",
+    "description": "Generate + edit HTML components with text prompts",
+    "category": "Coding, Productivity, Generating apps, Design, Content creation"
+  },
+  {
+    "name": "Manaflow",
+    "url": "https://manaflow.ai/",
+    "description": "Automate technical business workflows",
+    "category": "Productivity, Coding, Workflow automation"
+  },
+  {
+    "name": "Minion AI",
+    "url": "https://minion.ai/",
+    "description": "By creator of GitHub Copilot, in waitlist stage",
+    "category": "General purpose"
+  },
+  {
+    "name": "MultiOn",
+    "url": "https://multion.ai/",
+    "description": "Book a flight or order a burger with MultiOn",
+    "category": "Productivity, General purpose"
+  },
+  {
+    "name": "Mutable AI",
+    "url": "https://mutable.ai/",
+    "description": "AI-Accelerated Software Development",
+    "category": "Coding"
+  },
+  {
+    "name": "Naut",
+    "url": "https://www.naut.ai/",
+    "description": "Build your own agents. In early stage",
+    "category": "Build-your-own, Multi-agent"
+  },
+  {
+    "name": "NexusGPT",
+    "url": "https://gpt.nexus/",
+    "description": "Build AI agents in minutes, without coding",
+    "category": "Technical challenges of building AI products, Business/marketing challenges of building AI products"
+  },
+  {
+    "name": "Otherside's AI Assistant - Hyperwrite",
+    "url": "https://www.hyperwriteai.com/",
+    "description": "Chrome extension - general purpose AI agent",
+    "category": "Productivity, General purpose"
+  },
+  {
+    "name": "Phind",
+    "url": "https://www.phind.com/",
+    "description": "Personal programming and research AI assistant",
+    "category": "Coding, research"
+  },
+  {
+    "name": "Powerdrill AI",
+    "url": "https://powerdrill.ai/",
+    "description": "AI agent that completes your data job 10x faster",
+    "category": "Data analysis, Productivity, Research, Marketig, Sales, Finance"
+  },
+  {
+    "name": "Proficient AI",
+    "url": "https://proficientai.com",
+    "description": "Interaction APIs and SDKs for building AI agents",
+    "category": "Build-your-own"
+  },
+  {
+    "name": "Promptly",
+    "url": "https://www.trypromptly.com/",
+    "description": "Generative AI for Your Enterprise",
+    "category": "Build-your-own, no-code, web UI"
+  },
+  {
+    "name": "Q, ChatGPT for Slack",
+    "url": "https://q-bot.suchica.com/",
+    "description": "AI workforce on Slack for under-resourced SMEs",
+    "category": "General purpose, Personal assistant, Business intelligence, Productivity"
+  },
+  {
+    "name": "Questflow",
+    "url": "https://questflow.ai",
+    "description": "Marketplace for autonomous AI workers with no-code",
+    "category": "Build-your-own"
+  },
+  {
+    "name": "Rebyte",
+    "url": "https://rebyte.ai/",
+    "description": "A Multi ai agents builder platform",
+    "category": "General purpose, Generating apps, Build-your-own"
+  },
+  {
+    "name": "Relevance AI",
+    "url": "https://relevanceai.com/",
+    "description": "Build your AI Workforce",
+    "category": "Content creation, Productivity, Research, Build-your-own (agent-builing frameworks and platforms), Marketig, Sales, General purpose, Multi-agent, Supports open-source models"
+  },
+  {
+    "name": "Saga",
+    "url": "https://saga.so/ai",
+    "description": "Digital AI assistant for notes, tasks, and tools",
+    "category": "Productivity, Content creation"
+  },
+  {
+    "name": "Second",
+    "url": "https://www.second.dev/",
+    "description": "Automated migrations and upgrades for your code",
+    "category": "Coding"
+  },
+  {
+    "name": "Sentius",
+    "url": "https://www.sentius.ai/",
+    "description": "AI Agent operates browser to do your tasks for you",
+    "category": "General purpose, Multi-agent, Supports open-source models"
+  },
+  {
+    "name": "ShopPal",
+    "url": "https://shoppal.ai",
+    "description": "AI assistant, enhance shopping experience.",
+    "category": "Productivity, Research, Ecommerce"
+  },
+  {
+    "name": "Spell",
+    "url": "https://spell.so/",
+    "description": "AutoGPT agents with plugins",
+    "category": "General purpose"
+  },
+  {
+    "name": "Superluminal",
+    "url": "https://superluminal.dev",
+    "description": "AI copilot to your product's data dashboard",
+    "category": "Coding, Data analysis"
+  },
+  {
+    "name": "TalktoData",
+    "url": "https://talktodata.ai/",
+    "description": "Data discovery, cleaing, analysis & visualization",
+    "category": "Coding, Data analysis"
+  },
+  {
+    "name": "Taskade",
+    "url": "https://www.taskade.com/",
+    "description": "Create, train, and run custom AI agents",
+    "category": "Build-your-own, General purpose, Productivity"
+  },
+  {
+    "name": "ThinkChain AI",
+    "url": "https://www.thinkchain.ai/",
+    "description": "Financial AI agent platform",
+    "category": "Finance, Data analysis"
+  },
+  {
+    "name": "Test Driver",
+    "url": "https://testdriver.ai/",
+    "description": "AI Agent for QA in GitHub",
+    "category": "Coding, Productivity, Debugging, Testing"
+  },
+  {
+    "name": "Tusk",
+    "url": "https://usetusk.ai/",
+    "description": "AI engineer that pushes and tests code",
+    "category": "Coding"
+  },
+  {
+    "name": "Vortic",
+    "url": "https://www.vortic.ai/",
+    "description": "AI agent helping Insurance Sales and Claims",
+    "category": "Productivity, Build-your-own (agent-builing frameworks and platforms), Sales, General purpose, Multi-agent, Supports open-source models"
+  },
+  {
+    "name": "v0 by Vercel",
+    "url": "https://v0.dev/",
+    "description": "Get React code based on Shadcn UI & Tailwind CSS",
+    "category": "Coding"
+  },
+  {
+    "name": "Wispy",
+    "url": "https://wispy.technicalmagic.ai/",
+    "description": "Summarize content, compose content, create quizzes",
+    "category": "Research, content creation"
+  },
+  {
+    "name": "Wordware",
+    "url": "https://www.wordware.ai/",
+    "description": "Build better language model apps, fast.",
+    "category": "Build-your-own, Supports open-source models"
+  },
+  {
+    "name": "WorkBot",
+    "url": "https://workhub.ai/",
+    "description": "The Only AI Platform you will ever need!",
+    "category": "Science, Productivity, Business intelligence"
+  },
+  {
+    "name": "Zapier Central",
+    "url": "https://zapier.com/central",
+    "description": "Work hand in hand with AI bots",
+    "category": "Build-your-own, Productivity, General purpose"
+  }
+]
