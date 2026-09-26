@@ -407,14 +407,16 @@ export default function App() {
     const c0 = currentPal.colors[0];
     const c1 = currentPal.colors[1];
 
-    // Background Decay & Strobe effect
+    // Background Decay & Trail Rendering (Never let canvas blow out to pure white)
     ctx.save();
-    if (st.params.strobe > 0 && peak > 0.85 && Math.random() < st.params.strobe / 100) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.4 * bloomMod})`;
+    if (st.params.strobe > 0 && peak > 0.92 && Math.random() < st.params.strobe / 100) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.15 * Math.min(bloomMod, 1.5)})`;
+      ctx.fillRect(0, 0, W, H);
     } else {
-      ctx.fillStyle = 'rgba(10, 10, 14, 0.25)';
+      // High-contrast deep dark trailing decay
+      ctx.fillStyle = 'rgba(8, 8, 12, 0.22)';
+      ctx.fillRect(0, 0, W, H);
     }
-    ctx.fillRect(0, 0, W, H);
     ctx.restore();
 
     // --- ENGINE 1: SACRED FRACTALS & MANDALA SYMMETRY ---
@@ -431,10 +433,10 @@ export default function App() {
         const ringRad = (baseRadius / rings) * r * (1 + bands.low * 0.3);
         const ringHue = (r * 35 + st.time * 40 + hueMod * 180) % 360;
 
-        ctx.strokeStyle = `hsla(${ringHue}, 100%, ${65 + bloomMod * 25}%, ${0.6 + bloomMod * 0.3})`;
-        ctx.lineWidth = 1.5 + bloomMod * 2.5;
-        ctx.shadowBlur = 10 * bloomMod;
-        ctx.shadowColor = ctx.strokeStyle;
+        ctx.strokeStyle = `hsla(${ringHue}, 100%, ${65 + bloomMod * 20}%, ${0.7 + bloomMod * 0.25})`;
+        ctx.lineWidth = 1.5 + bloomMod * 2.0;
+        ctx.shadowBlur = 12 * Math.min(bloomMod, 2);
+        ctx.shadowColor = `hsla(${ringHue}, 100%, 65%, 0.8)`;
 
         for (let p = 0; p < petals; p++) {
           const angle = (p / petals) * Math.PI * 2;
@@ -470,12 +472,12 @@ export default function App() {
       for (let i = tunnelRings; i >= 1; i--) {
         const depth = ((i * 40 + st.tunnelZ * 100) % 1000) / 1000;
         const scale = Math.pow(depth, 3) * (Math.min(W, H) * 0.8) * (1 + bands.sub * 0.6);
-        const alpha = Math.sin(depth * Math.PI) * (0.4 + bloomMod * 0.5);
+        const alpha = Math.sin(depth * Math.PI) * (0.5 + bloomMod * 0.4);
         const ringHue = (depth * 280 + st.time * 60 + hueMod * 180) % 360;
 
         ctx.strokeStyle = `hsla(${ringHue}, 90%, 65%, ${alpha})`;
         ctx.lineWidth = (1 - depth) * 4 + bloomMod * 2;
-        ctx.shadowBlur = 15 * bloomMod * (1 - depth);
+        ctx.shadowBlur = 15 * Math.min(bloomMod, 2) * (1 - depth);
         ctx.shadowColor = ctx.strokeStyle;
 
         ctx.beginPath();
@@ -532,7 +534,7 @@ export default function App() {
           const pAlpha = Math.min(1, (1 - p.z / 2000) * (0.6 + bloomMod * 0.4));
 
           ctx.fillStyle = `hsla(${pHue}, 100%, 75%, ${pAlpha})`;
-          ctx.shadowBlur = 8 * bloomMod;
+          ctx.shadowBlur = 8 * Math.min(bloomMod, 2);
           ctx.shadowColor = ctx.fillStyle;
 
           ctx.beginPath();
@@ -575,7 +577,7 @@ export default function App() {
 
         ctx.strokeStyle = `hsla(${rowHue}, 100%, 65%, ${0.3 + (1 - zRatio) * 0.7})`;
         ctx.lineWidth = 1.5 + bloomMod;
-        ctx.shadowBlur = 8 * bloomMod;
+        ctx.shadowBlur = 8 * Math.min(bloomMod, 2);
         ctx.shadowColor = ctx.strokeStyle;
 
         ctx.beginPath();
@@ -626,8 +628,8 @@ export default function App() {
       const step = W / numPoints;
 
       ctx.strokeStyle = c1;
-      ctx.lineWidth = 3 + bloomMod * 3;
-      ctx.shadowBlur = 15 * bloomMod;
+      ctx.lineWidth = 3 + bloomMod * 2;
+      ctx.shadowBlur = 15 * Math.min(bloomMod, 2);
       ctx.shadowColor = c0;
 
       ctx.beginPath();
@@ -653,21 +655,21 @@ export default function App() {
       ctx.restore();
     }
 
-    // --- POST-PROCESSING SHADER SIMULATION: CHROMATIC ABERRATION & FILM GRAIN ---
-    if (chromaMod > 0.05 && (bands.low > 0.3 || st.params.chroma > 10)) {
+    // --- POST-PROCESSING: CHROMATIC GLITCH & GRAIN (Safe Overlays) ---
+    if (chromaMod > 0.1 && bands.low > 0.35) {
       ctx.save();
-      const shift = Math.floor(chromaMod * 12 * (1 + bands.sub * 2));
-      ctx.globalCompositeOperation = 'screen';
-      ctx.drawImage(canvas, -shift, 0, W, H);
-      ctx.drawImage(canvas, shift, 0, W, H);
+      ctx.fillStyle = 'rgba(255, 0, 128, 0.04)';
+      ctx.fillRect(Math.sin(st.time * 10) * 8, 0, W, H);
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.04)';
+      ctx.fillRect(-Math.sin(st.time * 10) * 8, 0, W, H);
       ctx.restore();
     }
 
-    // Dynamic Film Grain
+    // Dynamic Film Grain Overlay
     if (grainMod > 0.05) {
       ctx.save();
-      const grainCount = Math.floor(W * H * 0.0003 * grainMod);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+      const grainCount = Math.floor(Math.min(W * H * 0.00015 * grainMod, 400));
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
       for (let g = 0; g < grainCount; g++) {
         ctx.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5);
       }
