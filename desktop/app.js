@@ -986,6 +986,371 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(animationLoop);
   }
 
+  // ==========================================
+  // Cloud Storage & Global Community Presets Hub Controller
+  // ==========================================
+  const cloudStorage = new TouchArtCloudStorage();
+  
+  const cloudHubModal = document.getElementById('cloudHubModal');
+  const btnOpenCloudHub = document.getElementById('btnOpenCloudHub');
+  const btnCloseCloudHub = document.getElementById('btnCloseCloudHub');
+  const btnCloudHubQuick = document.getElementById('btnCloudHubQuick');
+  const btnCloudSavePreset = document.getElementById('btnCloudSavePreset');
+  const userProfileLabel = document.getElementById('userProfileLabel');
+
+  const tabBtnAccount = document.getElementById('tabBtnAccount');
+  const tabBtnCommunity = document.getElementById('tabBtnCommunity');
+  const tabBtnPublish = document.getElementById('tabBtnPublish');
+  const tabContentAccount = document.getElementById('tabContentAccount');
+  const tabContentCommunity = document.getElementById('tabContentCommunity');
+  const tabContentPublish = document.getElementById('tabContentPublish');
+
+  const authSectionLoggedOut = document.getElementById('authSectionLoggedOut');
+  const authSectionLoggedIn = document.getElementById('authSectionLoggedIn');
+  const dashUserName = document.getElementById('dashUserName');
+  const dashUserEmail = document.getElementById('dashUserEmail');
+  const userPresetsGrid = document.getElementById('userPresetsGrid');
+  const userPresetsCount = document.getElementById('userPresetsCount');
+  const communityPresetsGrid = document.getElementById('communityPresetsGrid');
+
+  // Modal Open / Close
+  function openCloudModal(tab = 'account') {
+    if (!cloudHubModal) return;
+    cloudHubModal.style.display = 'flex';
+    switchTab(tab);
+  }
+
+  function closeCloudModal() {
+    if (!cloudHubModal) return;
+    cloudHubModal.style.display = 'none';
+  }
+
+  if (btnOpenCloudHub) btnOpenCloudHub.addEventListener('click', () => openCloudModal('account'));
+  if (btnCloudHubQuick) btnCloudHubQuick.addEventListener('click', () => openCloudModal('community'));
+  if (btnCloseCloudHub) btnCloseCloudHub.addEventListener('click', closeCloudModal);
+  if (cloudHubModal) {
+    cloudHubModal.addEventListener('click', (e) => {
+      if (e.target === cloudHubModal) closeCloudModal();
+    });
+  }
+
+  // Tab Switcher
+  function switchTab(tabName) {
+    [tabBtnAccount, tabBtnCommunity, tabBtnPublish].forEach(b => b && b.classList.remove('active'));
+    [tabContentAccount, tabContentCommunity, tabContentPublish].forEach(p => p && (p.style.display = 'none'));
+
+    if (tabName === 'account') {
+      if (tabBtnAccount) tabBtnAccount.classList.add('active');
+      if (tabContentAccount) tabContentAccount.style.display = 'block';
+      if (cloudStorage.currentUser) loadUserPresetsUI();
+    } else if (tabName === 'community') {
+      if (tabBtnCommunity) tabBtnCommunity.classList.add('active');
+      if (tabContentCommunity) tabContentCommunity.style.display = 'block';
+      loadCommunityPresetsUI();
+    } else if (tabName === 'publish') {
+      if (tabBtnPublish) tabBtnPublish.classList.add('active');
+      if (tabContentPublish) tabContentPublish.style.display = 'block';
+    }
+  }
+
+  if (tabBtnAccount) tabBtnAccount.addEventListener('click', () => switchTab('account'));
+  if (tabBtnCommunity) tabBtnCommunity.addEventListener('click', () => switchTab('community'));
+  if (tabBtnPublish) tabBtnPublish.addEventListener('click', () => switchTab('publish'));
+
+  // Auth State Listener
+  cloudStorage.onAuthStateChanged((user) => {
+    if (user) {
+      const displayName = user.displayName || (user.isAnonymous ? 'Guest Artist' : user.email.split('@')[0]);
+      if (userProfileLabel) userProfileLabel.textContent = `⚡ ${displayName.substring(0, 14)}`;
+      if (dashUserName) dashUserName.textContent = displayName;
+      if (dashUserEmail) dashUserEmail.textContent = user.isAnonymous ? 'Anonymous Cloud Session (Sync Active)' : (user.email || '');
+      
+      if (authSectionLoggedOut) authSectionLoggedOut.style.display = 'none';
+      if (authSectionLoggedIn) authSectionLoggedIn.style.display = 'flex';
+      
+      loadUserPresetsUI();
+    } else {
+      if (userProfileLabel) userProfileLabel.textContent = '☁️ Cloud Hub';
+      if (authSectionLoggedOut) authSectionLoggedOut.style.display = 'block';
+      if (authSectionLoggedIn) authSectionLoggedIn.style.display = 'none';
+    }
+  });
+
+  // Auth Button Handlers
+  const btnSignInEmail = document.getElementById('btnSignInEmail');
+  const btnSignUpEmail = document.getElementById('btnSignUpEmail');
+  const btnSignInGoogle = document.getElementById('btnSignInGoogle');
+  const btnSignInGuest = document.getElementById('btnSignInGuest');
+  const btnSignOut = document.getElementById('btnSignOut');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+
+  if (btnSignInEmail) {
+    btnSignInEmail.addEventListener('click', async () => {
+      try {
+        const email = authEmail.value.trim();
+        const pwd = authPassword.value;
+        if (!email || !pwd) return alert('Please enter email and password.');
+        await cloudStorage.signInWithEmail(email, pwd);
+      } catch (err) {
+        alert(`Sign In Error: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnSignUpEmail) {
+    btnSignUpEmail.addEventListener('click', async () => {
+      try {
+        const email = authEmail.value.trim();
+        const pwd = authPassword.value;
+        if (!email || !pwd) return alert('Please enter email and password.');
+        await cloudStorage.signUpWithEmail(email, pwd);
+      } catch (err) {
+        alert(`Sign Up Error: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnSignInGoogle) {
+    btnSignInGoogle.addEventListener('click', async () => {
+      try {
+        await cloudStorage.signInWithGoogle();
+      } catch (err) {
+        alert(`Google Sign-In Error: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnSignInGuest) {
+    btnSignInGuest.addEventListener('click', async () => {
+      try {
+        await cloudStorage.signInAnonymously();
+      } catch (err) {
+        alert(`Guest Sign-In Error: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnSignOut) {
+    btnSignOut.addEventListener('click', async () => {
+      await cloudStorage.signOut();
+    });
+  }
+
+  // Cloud Save Preset Handler
+  if (btnCloudSavePreset) {
+    btnCloudSavePreset.addEventListener('click', async () => {
+      if (!cloudStorage.currentUser) {
+        openCloudModal('account');
+        return;
+      }
+
+      const defaultName = `Preset: ${presetSelect.options[presetSelect.selectedIndex]?.text || 'Custom Visual'}`;
+      const name = prompt('Enter a name for this Cloud Preset:', defaultName);
+      if (!name) return;
+
+      const currentParams = {};
+      for (let i = 1; i <= 10; i++) currentParams[`p${i}`] = parseFloat(document.getElementById(`slider_p${i}`).value);
+
+      const presetData = {
+        name: name,
+        equationKey: presetSelect.value,
+        params: currentParams,
+        postFx: {
+          bloom: parseFloat(document.getElementById('slider_bloom').value),
+          chromatic: parseFloat(document.getElementById('slider_chromatic').value),
+          vignette: parseFloat(document.getElementById('slider_vignette').value),
+          filmgrain: parseFloat(document.getElementById('slider_filmgrain').value)
+        },
+        audioConfig: {
+          masterGain: audioIngest.masterGain,
+          bassGain: bassGain,
+          midGain: midGain,
+          trebleGain: trebleGain,
+          smoothness: audioDamping
+        },
+        automations: JSON.parse(JSON.stringify(automationSlots))
+      };
+
+      try {
+        await cloudStorage.saveUserPreset(presetData);
+        alert(`Saved "${name}" to your Cloud account successfully!`);
+        loadUserPresetsUI();
+      } catch (err) {
+        alert(`Could not save preset: ${err.message}`);
+      }
+    });
+  }
+
+  // Sync Local Presets to Cloud
+  const btnSyncLocalToCloud = document.getElementById('btnSyncLocalToCloud');
+  if (btnSyncLocalToCloud) {
+    btnSyncLocalToCloud.addEventListener('click', async () => {
+      try {
+        btnSyncLocalToCloud.textContent = '🔄 Syncing...';
+        const count = await cloudStorage.syncLocalPresetsToCloud();
+        alert(`Successfully synced ${count} local preset(s) to your Cloud account!`);
+        btnSyncLocalToCloud.textContent = '🔄 Sync Local Presets';
+        loadUserPresetsUI();
+      } catch (err) {
+        alert(`Sync failed: ${err.message}`);
+        btnSyncLocalToCloud.textContent = '🔄 Sync Local Presets';
+      }
+    });
+  }
+
+  // Publish to Community Submit
+  const btnPublishPresetSubmit = document.getElementById('btnPublishPresetSubmit');
+  if (btnPublishPresetSubmit) {
+    btnPublishPresetSubmit.addEventListener('click', async () => {
+      if (!cloudStorage.currentUser) {
+        openCloudModal('account');
+        return;
+      }
+
+      const name = document.getElementById('pubPresetName').value.trim();
+      const desc = document.getElementById('pubPresetDesc').value.trim();
+      const tagsRaw = document.getElementById('pubPresetTags').value.trim();
+      if (!name) return alert('Please enter a preset name.');
+
+      const currentParams = {};
+      for (let i = 1; i <= 10; i++) currentParams[`p${i}`] = parseFloat(document.getElementById(`slider_p${i}`).value);
+
+      const presetData = {
+        name: name,
+        description: desc,
+        tags: tagsRaw ? tagsRaw.split(',').map(t => t.trim()) : ['audio-reactive'],
+        equationKey: presetSelect.value,
+        params: currentParams,
+        postFx: {
+          bloom: parseFloat(document.getElementById('slider_bloom').value),
+          chromatic: parseFloat(document.getElementById('slider_chromatic').value),
+          vignette: parseFloat(document.getElementById('slider_vignette').value),
+          filmgrain: parseFloat(document.getElementById('slider_filmgrain').value)
+        },
+        audioConfig: {
+          masterGain: audioIngest.masterGain,
+          bassGain: bassGain,
+          midGain: midGain,
+          trebleGain: trebleGain,
+          smoothness: audioDamping
+        },
+        automations: JSON.parse(JSON.stringify(automationSlots))
+      };
+
+      try {
+        btnPublishPresetSubmit.textContent = '🌟 Publishing...';
+        await cloudStorage.publishToCommunity(presetData);
+        alert(`🎉 Preset "${name}" published to Global Community Hub!`);
+        btnPublishPresetSubmit.textContent = '🌟 Publish to Community Hub';
+        switchTab('community');
+      } catch (err) {
+        alert(`Publish failed: ${err.message}`);
+        btnPublishPresetSubmit.textContent = '🌟 Publish to Community Hub';
+      }
+    });
+  }
+
+  // Render User Cloud Presets
+  async function loadUserPresetsUI() {
+    if (!userPresetsGrid) return;
+    userPresetsGrid.innerHTML = '<div style="color: var(--text-muted); font-size: 0.75rem;">Loading cloud presets...</div>';
+    
+    const presets = await cloudStorage.getUserPresets();
+    if (userPresetsCount) userPresetsCount.textContent = `${presets.length} Presets`;
+    userPresetsGrid.innerHTML = '';
+
+    if (presets.length === 0) {
+      userPresetsGrid.innerHTML = '<div style="color: var(--text-muted); font-size: 0.75rem; grid-column: 1 / -1;">No cloud presets saved yet. Click "Cloud Save" or "Sync Local Presets" to store your visual equations!</div>';
+      return;
+    }
+
+    presets.forEach((p) => {
+      const card = document.createElement('div');
+      card.className = 'preset-card';
+      card.innerHTML = `
+        <div>
+          <div class="preset-card-title">${escapeHtml(p.name)}</div>
+          <div class="preset-card-author">Mode: ${p.equationKey || 'Shader'}</div>
+        </div>
+        <div class="preset-card-actions">
+          <button class="btn-card-action load" data-id="${p.id}">⚡ Load</button>
+          <button class="btn-card-action delete" data-id="${p.id}" style="color: #ff4757; border-color: rgba(255, 71, 87, 0.3);">🗑️</button>
+        </div>
+      `;
+
+      card.querySelector('.btn-card-action.load').addEventListener('click', () => {
+        applyRule(p);
+        closeCloudModal();
+      });
+
+      card.querySelector('.btn-card-action.delete').addEventListener('click', async () => {
+        if (confirm(`Delete cloud preset "${p.name}"?`)) {
+          await cloudStorage.deleteUserPreset(p.id);
+          loadUserPresetsUI();
+        }
+      });
+
+      userPresetsGrid.appendChild(card);
+    });
+  }
+
+  // Render Community Presets
+  const btnRefreshCommunity = document.getElementById('btnRefreshCommunity');
+  if (btnRefreshCommunity) btnRefreshCommunity.addEventListener('click', loadCommunityPresetsUI);
+
+  async function loadCommunityPresetsUI() {
+    if (!communityPresetsGrid) return;
+    communityPresetsGrid.innerHTML = '<div style="color: var(--text-muted); font-size: 0.75rem; grid-column: 1 / -1;">Discovering community presets...</div>';
+    
+    const presets = await cloudStorage.getCommunityPresets(40);
+    communityPresetsGrid.innerHTML = '';
+
+    if (presets.length === 0) {
+      communityPresetsGrid.innerHTML = '<div style="color: var(--text-muted); font-size: 0.75rem; grid-column: 1 / -1;">Be the first visual artist to publish a preset to the Global Community Hub!</div>';
+      return;
+    }
+
+    presets.forEach((p) => {
+      const card = document.createElement('div');
+      card.className = 'preset-card';
+      const tagsHtml = (p.tags || []).map(t => `<span style="font-size: 0.6rem; padding: 1px 4px; background: rgba(0, 240, 255, 0.1); border-radius: 3px; color: var(--accent-cyan); margin-right: 3px;">#${escapeHtml(t)}</span>`).join('');
+      
+      card.innerHTML = `
+        <div>
+          <div class="preset-card-title">${escapeHtml(p.name)}</div>
+          <div class="preset-card-author">by <strong>${escapeHtml(p.authorName || 'Artist')}</strong></div>
+          ${p.description ? `<div class="preset-card-desc" style="margin-top: 4px;">${escapeHtml(p.description)}</div>` : ''}
+          <div style="margin-top: 6px;">${tagsHtml}</div>
+        </div>
+        <div class="preset-card-actions">
+          <button class="btn-card-action load" data-id="${p.id}">⚡ Load Preset</button>
+          <button class="btn-card-action like" data-id="${p.id}">❤️ <span class="like-cnt">${p.likesCount || 0}</span></button>
+        </div>
+      `;
+
+      card.querySelector('.btn-card-action.load').addEventListener('click', () => {
+        applyRule(p);
+        closeCloudModal();
+      });
+
+      const likeBtn = card.querySelector('.btn-card-action.like');
+      likeBtn.addEventListener('click', async () => {
+        await cloudStorage.likeCommunityPreset(p.id);
+        const cntEl = likeBtn.querySelector('.like-cnt');
+        if (cntEl) cntEl.textContent = (parseInt(cntEl.textContent, 10) || 0) + 1;
+        likeBtn.style.background = 'rgba(255, 0, 127, 0.35)';
+      });
+
+      communityPresetsGrid.appendChild(card);
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   // Start with default hardware device audio capture
   audioIngest.startAudioDevice(null);
 
