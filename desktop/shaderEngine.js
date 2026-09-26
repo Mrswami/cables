@@ -151,7 +151,7 @@ class TouchArtShaderEngine {
         vec3 col = vec3(0.0);
 
         // === Chromatic Aberration ===
-        float caStrength = u_chromatic * 0.012 * (1.0 + u_audio_bass * 2.0);
+        float caStrength = u_chromatic * 0.012 * (1.0 + u_audio_bass * 0.5);
         vec2 caDir = (uv - 0.5) * caStrength;
         col.r = texture(u_sceneTexture, uv + caDir).r;
         col.g = texture(u_sceneTexture, uv).g;
@@ -160,7 +160,7 @@ class TouchArtShaderEngine {
         // === Bloom (Screen-Space Multi-Sample Glow) ===
         if (u_bloom > 0.01) {
           vec3 bloomAccum = vec3(0.0);
-          float bloomRadius = u_bloom * 8.0 * (1.0 + u_audio_bass * 1.5);
+          float bloomRadius = u_bloom * 8.0 * (1.0 + u_audio_bass * 0.4);
           float totalWeight = 0.0;
           
           for (float x = -3.0; x <= 3.0; x += 1.0) {

@@ -53,6 +53,32 @@ document.addEventListener('DOMContentLoaded', () => {
   let midGain = 1.0;
   let trebleGain = 1.0;
 
+  // Visual Smoothness / Damping State (aiXander & VolkanSah organic ballistics)
+  const sliderSmoothness = document.getElementById('slider_smoothness');
+  const valSmoothness = document.getElementById('val_smoothness');
+  let audioDamping = 0.86; // 0.50 (responsive) to 0.98 (silky ambient flow)
+
+  if (sliderSmoothness) {
+    sliderSmoothness.addEventListener('input', (e) => {
+      audioDamping = parseFloat(e.target.value);
+      const percent = Math.round(audioDamping * 100);
+      const label = audioDamping > 0.88 ? 'Silky Ambient' : (audioDamping > 0.75 ? 'Smooth Flow' : 'Responsive');
+      if (valSmoothness) valSmoothness.textContent = `${percent}% (${label})`;
+    });
+  }
+
+  // Target metrics buffer for 60/120 FPS continuous interpolation
+  const targetAudio = {
+    subBass: 0,
+    bass: 0,
+    mid: 0,
+    treble: 0,
+    rms: 0,
+    peak: 0,
+    beat: 0,
+    rhythm: 0
+  };
+
   // EQ Visualizer State
   let eqFftData = null;
   let eqSmoothedBars = new Float32Array(128).fill(0);
@@ -62,20 +88,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize Audio Ingest
   const audioIngest = new TouchArtAudioIngest((metrics, fftData) => {
-    // Apply gains
-    shaderEngine.audio.subBass = metrics.subBass || 0;
-    shaderEngine.audio.bass = Math.min(1.0, metrics.bass * bassGain);
-    shaderEngine.audio.mid = Math.min(1.0, metrics.mid * midGain);
-    shaderEngine.audio.treble = Math.min(1.0, metrics.treble * trebleGain);
-    shaderEngine.audio.rms = metrics.rms;
-    shaderEngine.audio.peak = metrics.peak;
-    shaderEngine.audio.beat = metrics.beat || 0;
-    shaderEngine.audio.rhythm = metrics.rhythmPhase || 0;
-
-    // Update Meter Bars
-    meterBass.style.width = `${shaderEngine.audio.bass * 100}%`;
-    meterMid.style.width = `${shaderEngine.audio.mid * 100}%`;
-    meterTreble.style.width = `${shaderEngine.audio.treble * 100}%`;
+    // Buffer targets with user gain applied
+    targetAudio.subBass = metrics.subBass || 0;
+    targetAudio.bass = Math.min(1.0, (metrics.bass || 0) * bassGain);
+    targetAudio.mid = Math.min(1.0, (metrics.mid || 0) * midGain);
+    targetAudio.treble = Math.min(1.0, (metrics.treble || 0) * trebleGain);
+    targetAudio.rms = metrics.rms || 0;
+    targetAudio.peak = metrics.peak || 0;
+    targetAudio.beat = metrics.beat || 0;
+    targetAudio.rhythm = metrics.rhythmPhase || 0;
 
     // Store FFT data for EQ visualizer
     if (fftData) {
@@ -149,8 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
         rawVal = eqFftData[binIndex] / 255.0;
       }
 
-      // Smooth the bars with decay
-      eqSmoothedBars[i] = Math.max(rawVal, eqSmoothedBars[i] * 0.85);
+      // Asymmetric ballistics smoothing (VolkanSah / aiXander algorithm)
+      if (rawVal > eqSmoothedBars[i]) {
+        eqSmoothedBars[i] = eqSmoothedBars[i] * 0.35 + rawVal * 0.65;
+      } else {
+        eqSmoothedBars[i] = eqSmoothedBars[i] * 0.90 + rawVal * 0.10;
+      }
       const val = eqSmoothedBars[i];
       const barHeight = val * h * 0.95;
 
@@ -841,6 +866,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Real-time Rhythm Slider Automation
     updateRhythmAutomations();
+
+    // Continuous Organic Temporal Interpolation (aiXander & VolkanSah Damping Filter)
+    const damp = audioDamping;
+    const invDamp = 1.0 - damp;
+    shaderEngine.audio.subBass = shaderEngine.audio.subBass * damp + targetAudio.subBass * invDamp;
+    shaderEngine.audio.bass = shaderEngine.audio.bass * damp + targetAudio.bass * invDamp;
+    shaderEngine.audio.mid = shaderEngine.audio.mid * damp + targetAudio.mid * invDamp;
+    shaderEngine.audio.treble = shaderEngine.audio.treble * damp + targetAudio.treble * invDamp;
+    shaderEngine.audio.rms = shaderEngine.audio.rms * damp + targetAudio.rms * invDamp;
+    shaderEngine.audio.peak = shaderEngine.audio.peak * damp + targetAudio.peak * invDamp;
+    shaderEngine.audio.beat = shaderEngine.audio.beat * damp + targetAudio.beat * invDamp;
+    shaderEngine.audio.rhythm = targetAudio.rhythm;
+
+    // Smooth Hardware Band Meter Animations
+    if (meterBass) meterBass.style.width = `${Math.min(100, shaderEngine.audio.bass * 100)}%`;
+    if (meterMid) meterMid.style.width = `${Math.min(100, shaderEngine.audio.mid * 100)}%`;
+    if (meterTreble) meterTreble.style.width = `${Math.min(100, shaderEngine.audio.treble * 100)}%`;
 
     shaderEngine.render();
     fpsCounter.textContent = `${shaderEngine.currentFps} FPS`;

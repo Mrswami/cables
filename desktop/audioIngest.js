@@ -247,27 +247,37 @@ class TouchArtAudioIngest {
 
     const agcMultiplier = (1.0 / this.peakEnvelope) * this.masterGain;
 
-    // Highly responsive & expanded frequency metrics
-    this.metrics.subBass = Math.min(1.0, Math.pow(rawSubBass * agcMultiplier, 1.15));
-    this.metrics.bass = Math.min(1.0, Math.pow(rawBass * agcMultiplier, 1.15));
-    this.metrics.mid = Math.min(1.0, Math.pow(rawMid * agcMultiplier, 1.15));
-    this.metrics.treble = Math.min(1.0, Math.pow(rawTreble * agcMultiplier, 1.15));
-    this.metrics.rms = Math.min(1.0, rawRms * agcMultiplier);
+    // Organic Asymmetric Smoothing (Fast attack, graceful silky decay)
+    const targetSubBass = Math.min(1.0, Math.pow(rawSubBass * agcMultiplier, 1.15));
+    const targetBass = Math.min(1.0, Math.pow(rawBass * agcMultiplier, 1.15));
+    const targetMid = Math.min(1.0, Math.pow(rawMid * agcMultiplier, 1.15));
+    const targetTreble = Math.min(1.0, Math.pow(rawTreble * agcMultiplier, 1.15));
+    const targetRms = Math.min(1.0, rawRms * agcMultiplier);
+
+    const smoothVal = (curr, target, att = 0.40, dec = 0.88) => {
+      return target > curr ? curr * (1.0 - att) + target * att : curr * dec + target * (1.0 - dec);
+    };
+
+    this.metrics.subBass = smoothVal(this.metrics.subBass || 0, targetSubBass, 0.40, 0.90);
+    this.metrics.bass = smoothVal(this.metrics.bass || 0, targetBass, 0.45, 0.89);
+    this.metrics.mid = smoothVal(this.metrics.mid || 0, targetMid, 0.35, 0.88);
+    this.metrics.treble = smoothVal(this.metrics.treble || 0, targetTreble, 0.35, 0.86);
+    this.metrics.rms = smoothVal(this.metrics.rms || 0, targetRms, 0.30, 0.92);
     this.metrics.peak = Math.max(this.metrics.subBass, this.metrics.bass, this.metrics.mid, this.metrics.treble);
 
-    // Transient Beat & Rhythm Detector
+    // Transient Beat & Rhythm Detector (Analog Light-Filament Envelope)
     const instantBass = (rawSubBass * 1.4 + rawBass) * 0.5;
     this.bassAvg = this.bassAvg * 0.94 + instantBass * 0.06;
 
-    this.beatDecay = Math.max(0.0, this.beatDecay * 0.88);
-    if (instantBass > this.bassAvg * 1.30 && instantBass > 0.03 && this.beatDecay < 0.35 && (now - this.lastBeatTime > 180)) {
-      this.beatDecay = 1.0;
+    this.beatDecay = Math.max(0.0, this.beatDecay * 0.91);
+    if (instantBass > this.bassAvg * 1.30 && instantBass > 0.03 && this.beatDecay < 0.45 && (now - this.lastBeatTime > 180)) {
+      this.beatDecay = Math.min(1.0, this.beatDecay * 0.4 + 0.6);
       this.lastBeatTime = now;
     }
     this.metrics.beat = this.beatDecay;
 
     // Audio-Synced Rhythm Phase Clock & LFOs
-    const rhythmRate = 2.5 + this.metrics.bass * 4.0 + this.metrics.beat * 3.0;
+    const rhythmRate = 2.0 + this.metrics.bass * 2.5 + this.metrics.beat * 1.5;
     this.rhythmPhase = (this.rhythmPhase + dt * rhythmRate) % (Math.PI * 2.0);
     this.metrics.rhythmPhase = this.rhythmPhase;
     this.metrics.lfoSine = Math.sin(this.rhythmPhase) * 0.5 + 0.5;

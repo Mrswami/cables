@@ -73,12 +73,12 @@ float map(vec3 p) {
     float spikeFreq = 2.0 + u_param2 * 30.0;
     float spikes = sin(q.x * spikeFreq) * sin(q.y * spikeFreq) * sin(q.z * spikeFreq) * (0.05 + u_param2 * 0.4);
 
-    // Audio Reactive Pulsing (High-Contrast Bass & Beat Impact)
-    float baseSize = 0.75 + u_audio_bass * 2.2 + u_audio_beat * 1.6;
+    // Audio Reactive Pulsing (Smooth Ambient Breathing)
+    float baseSize = 0.75 + u_audio_bass * 0.45 + u_audio_beat * 0.25;
     
     float sphere = length(q) - (baseSize + spikes);
     
-    vec3 b = abs(q) - vec3(baseSize * 0.7 + u_audio_mid * 0.8);
+    vec3 b = abs(q) - vec3(baseSize * 0.7 + u_audio_mid * 0.3);
     float box = length(max(b, 0.0)) + min(max(b.x, max(b.y, b.z)), 0.0) + spikes;
     
     float oct = sdOctahedron(q, baseSize * 1.2) + spikes;
@@ -142,9 +142,10 @@ void main() {
         col = baseColor * diff;
     }
     
+    // Rich harmonic neon glow without sudden strobe snapping
     vec3 glowColor = mix(vec3(0.0, 0.9, 1.0), vec3(1.0, 0.0, 0.6), sin(u_time * 2.0 + u_param3 * 5.0) * 0.5 + 0.5);
-    glowColor = mix(glowColor, vec3(1.0, 0.9, 0.2), u_audio_beat);
-    col += glowColor * glow * (0.12 + u_param3 * 0.45) * (1.0 + u_audio_bass * 4.0 + u_audio_beat * 2.5);
+    glowColor += vec3(0.05, 0.1, 0.2) * u_audio_beat;
+    col += glowColor * glow * (0.12 + u_param3 * 0.45) * (1.0 + u_audio_bass * 0.6 + u_audio_beat * 0.35);
     
     gl_FragColor = vec4(col, 1.0);
 }`
@@ -219,17 +220,17 @@ void main() {
     
     // u_param2: Ripple Frequency Lines (5x to 80x)
     float density = 5.0 + u_param2 * 75.0;
-    float wave = sin(p.x * density + t * 3.0 + u_audio_bass * 10.0);
-    wave += cos(p.y * density - t * 2.0 + u_audio_treble * 12.0);
+    float wave = sin(p.x * density + t * 3.0 + u_audio_bass * 1.5);
+    wave += cos(p.y * density - t * 2.0 + u_audio_treble * 1.5);
 
     // u_param6: Radial Pulsation
-    wave += sin(r * 20.0 - t * 5.0) * u_param6 * 2.0 * (1.0 + u_audio_bass * 2.0);
+    wave += sin(r * 20.0 - t * 5.0) * u_param6 * 2.0 * (1.0 + u_audio_bass * 0.4);
     
-    float c = smoothstep(0.0, 0.12, abs(wave) - (0.05 + u_audio_mid * 0.9));
+    float c = smoothstep(0.0, 0.12, abs(wave) - (0.05 + u_audio_mid * 0.25));
     
     // u_param3: Color Spectrum
     vec3 color = 0.5 + 0.5 * cos(t * (1.0 + u_param3 * 4.0) + r * (3.0 + u_param3 * 8.0) + vec3(0.0, 2.0, 4.0));
-    color *= (1.0 - c) * innerRing * (1.2 + u_audio_bass * 3.0);
+    color *= (1.0 - c) * innerRing * (1.0 + u_audio_bass * 0.55);
 
     // u_param9: Background ambient
     color += vec3(u_param9 * 0.08);
@@ -298,8 +299,8 @@ void main() {
     float maxOctaves = 1.0 + floor(u_param2 * 7.0);
     for(float i = 1.0; i < 9.0; i++){
         if (i > maxOctaves) break;
-        p.x += 0.3 / i * sin(i * 3.0 * p.y + speed + u_audio_bass * 5.0);
-        p.y += 0.3 / i * cos(i * 3.0 * p.x + speed + u_audio_treble * 5.0);
+        p.x += 0.3 / i * sin(i * 3.0 * p.y + speed + u_audio_bass * 1.2);
+        p.y += 0.3 / i * cos(i * 3.0 * p.x + speed + u_audio_treble * 1.2);
     }
 
     // u_param6: Secondary Warp Layer
@@ -308,7 +309,7 @@ void main() {
         p.y += cos(p.x * 4.0 - t * 1.5) * u_param6 * 0.5;
     }
     
-    float col = sin(p.x * 2.0 + p.y * 2.0 + u_audio_mid * 6.0);
+    float col = sin(p.x * 2.0 + p.y * 2.0 + u_audio_mid * 1.5);
     
     // u_param3: Color Shift & Glow
     vec3 rgb = vec3(
@@ -322,7 +323,7 @@ void main() {
     // u_param9: Background fog
     rgb = mix(rgb, vec3(0.05), u_param9 * 0.5 * (1.0 - length(gl_FragCoord.xy / u_resolution.xy - 0.5)));
 
-    gl_FragColor = vec4(rgb * (0.8 + u_audio_bass * 1.8), 1.0);
+    gl_FragColor = vec4(rgb * (0.9 + u_audio_bass * 0.45), 1.0);
 }`
   },
 
@@ -384,9 +385,9 @@ void main() {
         col += vec3(star) * (0.5 + u_audio_treble);
     }
 
-    // Synthwave Sun (Pulses with Bass & Beat)
+    // Synthwave Sun (Gentle Ambient Breathing with Bass & Beat)
     vec2 sunPos = vec2(0.0, 0.15);
-    float sunRadius = 0.24 + u_param1 * 0.3 + u_audio_bass * 0.35 + u_audio_beat * 0.25;
+    float sunRadius = 0.24 + u_param1 * 0.3 + u_audio_bass * 0.08 + u_audio_beat * 0.05;
     float distToSun = length(uv - sunPos);
     
     if (distToSun < sunRadius) {
@@ -426,8 +427,7 @@ void main() {
         float gridLineWidth = 0.04;
         if (line < gridLineWidth) {
             vec3 gridColor = mix(vec3(0.0, 0.9, 1.0), vec3(1.0, 0.0, 0.8), u_param3);
-            gridColor = mix(gridColor, vec3(1.0, 0.9, 0.1), u_audio_beat);
-            col += gridColor * (1.0 - line / gridLineWidth) * (1.0 / (pZ * 0.3)) * (1.2 + u_audio_bass * 3.5 + u_audio_beat * 2.0);
+            col += gridColor * (1.0 - line / gridLineWidth) * (1.0 / (pZ * 0.3)) * (1.0 + u_audio_bass * 0.6 + u_audio_beat * 0.35);
         }
     }
 
@@ -489,19 +489,19 @@ void main() {
     
     // u_param2: Laser Rings
     float ringFreq = 4.0 + u_param2 * 46.0;
-    float rings = sin(z * ringFreq - speed + u_audio_bass * 6.0);
+    float rings = sin(z * ringFreq - speed + u_audio_bass * 1.5);
 
     // u_param6: Wall Texture
     float wallTex = sin(a * (4.0 + u_param6 * 20.0) + z * 0.5) * 0.5 + 0.5;
 
     // u_param8: Secondary Spiral Arms
     float spiralArms = 4.0 + floor(u_param8 * 16.0);
-    float spirals = sin(a * spiralArms + z * 2.0 + u_audio_treble * 8.0);
+    float spirals = sin(a * spiralArms + z * 2.0 + u_audio_treble * 1.5);
     
     float pattern = smoothstep(0.1, 0.9, rings * spirals) + wallTex * u_param6 * 0.3;
 
     vec3 col = mix(vec3(0.0, 0.8, 1.0), vec3(1.0, 0.0, 0.6), sin(z * 0.5 + t) * 0.5 + 0.5);
-    col *= pattern * (1.0 / (r * 2.0)) * (1.0 + u_audio_bass * 2.5);
+    col *= pattern * (1.0 / (r * 2.0)) * (1.0 + u_audio_bass * 0.55);
 
     // u_param9: Outer Glow Halo
     col += vec3(0.1, 0.3, 0.8) * u_param9 * (1.0 / (r * 3.0 + 1.0)) * 0.3;
@@ -564,8 +564,8 @@ void main() {
     // u_param7: Wave Propagation Speed
     float d = length(id);
     float h = sin(d * 0.5 - t * (1.0 + u_param7 * 5.0)) * 0.5 + 0.5;
-    h += u_audio_bass * (0.8 + u_param1 * 2.0);
-    h += u_audio_mid * 0.4;
+    h += u_audio_bass * (0.35 + u_param1 * 0.6);
+    h += u_audio_mid * 0.2;
 
     // u_param6: Corner Rounding
     float rounding = u_param6 * 0.2;
@@ -576,7 +576,7 @@ void main() {
     float colorPhase = id.x * (0.3 + u_param8 * 0.7) + id.y * (0.3 + u_param8 * 0.7) + t;
     vec3 col = mix(vec3(0.0, 0.5, 1.0), vec3(1.0, 0.0, 0.5), sin(colorPhase) * 0.5 + 0.5);
     col = mix(col, vec3(0.0, 1.0, 0.5), sin(colorPhase * 1.5 + 2.0) * 0.5 * u_param8);
-    col *= edge * (0.5 + u_param3 * 2.0) * (1.0 + u_audio_bass * 2.0);
+    col *= edge * (0.5 + u_param3 * 2.0) * (1.0 + u_audio_bass * 0.5);
 
     // u_param9: Background fade
     col += vec3(0.02, 0.01, 0.04) * u_param9;
@@ -664,8 +664,8 @@ void main() {
     // u_param8: Emission Glow
     vec3 emissionGlow = nebColor * pow(max(n, 0.0), 2.0) * u_param8 * 2.0;
 
-    vec3 col = nebColor * n * (1.0 + u_audio_bass * 1.8) + vec3(star) * (1.0 + u_audio_treble * 2.0);
-    col += emissionGlow * (1.0 + u_audio_mid);
+    vec3 col = nebColor * n * (1.0 + u_audio_bass * 0.5) + vec3(star) * (1.0 + u_audio_treble * 0.6);
+    col += emissionGlow * (1.0 + u_audio_mid * 0.4);
 
     // u_param9: Deep Space Background
     col += vec3(0.01, 0.005, 0.02) * u_param9 * 2.0;
@@ -732,7 +732,7 @@ void main() {
 
     // u_param2: Subdivision
     float freq = 4.0 + u_param2 * 46.0;
-    float crystal = sin(p.x * freq + u_audio_bass * 8.0) * cos(p.y * freq + u_audio_treble * 8.0);
+    float crystal = sin(p.x * freq + u_audio_bass * 1.5) * cos(p.y * freq + u_audio_treble * 1.5);
 
     // u_param6: Refraction Layers
     float refraction = sin(p.x * freq * 2.0 - t * 3.0) * cos(p.y * freq * 2.0 + t * 2.0);
@@ -743,8 +743,8 @@ void main() {
     float edgeGlow = smoothstep(0.1, 0.0, edge) * u_param8 * 3.0;
 
     vec3 col = 0.5 + 0.5 * cos(crystal * 5.0 + u_param3 * 6.28 + vec3(0.0, 2.0, 4.0));
-    col *= (0.8 + u_audio_bass * 2.0);
-    col += vec3(0.5, 0.8, 1.0) * edgeGlow * (1.0 + u_audio_mid);
+    col *= (0.9 + u_audio_bass * 0.45);
+    col += vec3(0.5, 0.8, 1.0) * edgeGlow * (1.0 + u_audio_mid * 0.4);
 
     // u_param9: Background fog
     col += vec3(0.03, 0.01, 0.06) * u_param9;
@@ -802,10 +802,10 @@ float getTerrainHeight(vec2 p) {
     // Canyon valley through center: smooth valley floor flanked by massive mountains
     float valley = smoothstep(1.2, 5.5, abs(p.x));
 
-    // Audio frequency multipliers with high dynamic punch
-    float audioBassPulse = (u_audio_bass * 4.0 + u_audio_beat * 3.5);
-    float audioMidWaves = (u_audio_mid * 2.5);
-    float audioTrebleCrests = (u_audio_treble * 2.2);
+    // Audio frequency modulation for organic mountain wave breathing
+    float audioBassPulse = (u_audio_bass * 0.75 + u_audio_beat * 0.40);
+    float audioMidWaves = (u_audio_mid * 0.50);
+    float audioTrebleCrests = (u_audio_treble * 0.40);
 
     float baseElev = (0.6 + u_param1 * 4.2) * (1.0 + audioBassPulse);
 
@@ -839,14 +839,14 @@ void main() {
         float starVal = hash21(starId);
         if (starVal > 0.982) {
             float twinkle = sin(t * 5.0 + starVal * 30.0) * 0.5 + 0.5;
-            skyCol += vec3(0.8, 0.9, 1.0) * twinkle * (0.6 + u_audio_treble * 2.5);
+            skyCol += vec3(0.8, 0.9, 1.0) * twinkle * (0.6 + u_audio_treble * 0.6);
         }
     }
 
     // Glowing Synthwave Sun on the horizon
     vec2 sunPos = vec2(0.0, 0.12 + u_param7 * 0.15);
     float sunDist = length(uv - sunPos);
-    float sunRadius = 0.22 + (u_audio_bass * 0.12 + u_audio_beat * 0.10);
+    float sunRadius = 0.22 + (u_audio_bass * 0.05 + u_audio_beat * 0.03);
     
     if (sunDist < sunRadius) {
         float sunY = (uv.y - (sunPos.y - sunRadius)) / (sunRadius * 2.0);
@@ -858,7 +858,7 @@ void main() {
     }
 
     // Sun Radial Corona / Glow
-    skyCol += vec3(1.0, 0.2, 0.5) * (0.04 / (sunDist + 0.08)) * (1.0 + u_audio_bass * 2.0);
+    skyCol += vec3(1.0, 0.2, 0.5) * (0.04 / (sunDist + 0.08)) * (1.0 + u_audio_bass * 0.35);
 
     vec3 col = skyCol;
 
@@ -894,20 +894,20 @@ void main() {
         float wireThickness = 0.03 + u_param8 * 0.12;
         float wire = smoothstep(wireThickness, 0.0, lineDist);
 
-        // Neon Wireframe Spectrum (Cyan -> Magenta -> Amber)
+        // Neon Wireframe Spectrum (Smooth Cyan -> Magenta transition with subtle beat lift)
         vec3 neonColor = mix(vec3(0.0, 0.95, 1.0), vec3(1.0, 0.0, 0.7), u_param3);
-        neonColor = mix(neonColor, vec3(1.0, 0.85, 0.0), u_audio_beat);
+        neonColor += vec3(0.08, 0.12, 0.22) * u_audio_beat;
 
         // Peak Height Highlight: mountain ridges glow hotter
         float peakGlow = clamp((hitPos.y - 1.0) * 0.4, 0.0, 1.0);
-        neonColor += vec3(0.3, 0.6, 1.0) * peakGlow * (1.0 + u_audio_treble * 2.5);
+        neonColor += vec3(0.3, 0.6, 1.0) * peakGlow * (1.0 + u_audio_treble * 0.6);
 
         // Distance fog attenuation
         float fog = exp(-0.045 * tDist);
         vec3 terrainSurf = mix(vec3(0.01, 0.005, 0.03), vec3(0.06, 0.01, 0.12), clamp(hitPos.y * 0.3, 0.0, 1.0));
 
-        // Combine wireframe lines with dark terrain surface
-        vec3 finalTerrain = terrainSurf + neonColor * wire * (1.6 + u_audio_bass * 3.5 + u_audio_beat * 2.0);
+        // Combine wireframe lines with dark terrain surface (soft harmonic glow)
+        vec3 finalTerrain = terrainSurf + neonColor * wire * (1.1 + u_audio_bass * 0.55 + u_audio_beat * 0.35);
 
         // Blend terrain into horizon sky fog
         col = mix(skyCol, finalTerrain, fog);
@@ -969,7 +969,7 @@ float map(vec3 p) {
     q.xy *= rotate2D(t * (0.1 + u_param4 * 2.0));
 
     // Torus Knot Distance Equation
-    float r1 = 1.0 + u_audio_bass * 0.8;
+    float r1 = 1.0 + u_audio_bass * 0.25;
     float r2 = 0.3 + u_param2 * 0.4;
     vec2 tor = vec2(length(q.xz) - r1, q.y);
     
@@ -1032,7 +1032,7 @@ void main() {
         col += vec3(0.8, 0.2, 0.5) * max(dot(n, normalize(vec3(-1.0, 1.0, 0.5))), 0.0) * 0.3;
     }
 
-    col += vec3(0.0, 0.8, 1.0) * glow * (0.1 + u_param3 * 0.4) * (1.0 + u_audio_bass * 2.5);
+    col += vec3(0.0, 0.8, 1.0) * glow * (0.1 + u_param3 * 0.4) * (1.0 + u_audio_bass * 0.5);
     gl_FragColor = vec4(col, 1.0);
 }`
   },
@@ -1091,7 +1091,7 @@ void main() {
 
     // u_param1 & u_param2: Spiral Arms & Density
     float arms = 2.0 + floor(u_param1 * 8.0);
-    float spiral = sin(a * arms + r * (10.0 + u_param2 * 40.0) + u_audio_bass * 6.0);
+    float spiral = sin(a * arms + r * (10.0 + u_param2 * 40.0) + u_audio_bass * 1.5);
 
     // u_param6: Particle Trail
     float trailWidth = 0.5 + u_param6 * 0.4;
@@ -1100,12 +1100,12 @@ void main() {
     // u_param8: Secondary Counter-Swirl
     if (u_param8 > 0.02) {
         float a2 = atan(uv.y, uv.x) - t * (0.5 + u_param8 * 3.0);
-        float spiral2 = sin(a2 * 3.0 + r * 15.0 + u_audio_treble * 4.0);
+        float spiral2 = sin(a2 * 3.0 + r * 15.0 + u_audio_treble * 1.5);
         particle += smoothstep(0.7, 1.0, spiral2) * u_param8 * 0.5;
     }
 
     vec3 col = 0.5 + 0.5 * cos(a + t + u_param3 * 6.28 + vec3(0.0, 2.0, 4.0));
-    col *= particle * (1.0 / (r * 1.5)) * (1.0 + u_audio_bass * 2.5);
+    col *= particle * (1.0 / (r * 1.5)) * (1.0 + u_audio_bass * 0.5);
 
     // u_param9: Background Nebula Glow
     col += vec3(0.1, 0.02, 0.15) * u_param9 * (1.0 - r * 0.5);

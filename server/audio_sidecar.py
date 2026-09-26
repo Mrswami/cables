@@ -54,6 +54,15 @@ class WasapiSpectralFluxIngestor:
         self.peak_envelope = 0.1
         self.master_gain = 3.5
 
+        # Organic Asymmetric IIR Smoothing Filters (aiXander & VolkanSah inspiration)
+        self.smooth_sub_bass = 0.0
+        self.smooth_bass = 0.0
+        self.smooth_mid = 0.0
+        self.smooth_treble = 0.0
+        self.smooth_rms = 0.0
+        self.smooth_peak = 0.0
+        self.smooth_eq = np.zeros(64, dtype=float)
+
         # Pre-compute 64 EQ band bin indices (logarithmic distribution)
         self.eq_bin_indices = np.round(
             np.geomspace(1, CHUNK_SIZE // 2, 65)
@@ -165,11 +174,13 @@ class WasapiSpectralFluxIngestor:
         kick_std = np.std(self.kick_history) if len(self.kick_history) > 5 else 0.0
         kick_threshold = kick_mean + 1.25 * kick_std + 0.02
 
-        self.kick_envelope = max(0.0, self.kick_envelope * 0.88)
+        # Smooth Kick Beat Envelope (Analog Light-Filament Decay)
+        self.kick_envelope = max(0.0, self.kick_envelope * 0.91)
         is_kick = False
         if kick_flux > kick_threshold and (now - self.last_kick_time) > 0.16 and kick_flux > 0.03:
             is_kick = True
-            self.kick_envelope = 1.0
+            # Soft musical attack rather than a binary square step
+            self.kick_envelope = min(1.0, self.kick_envelope * 0.4 + 0.6)
             if self.last_kick_time > 0:
                 interval = now - self.last_kick_time
                 if 0.28 <= interval <= 1.0:  # 60 to 214 BPM
@@ -179,58 +190,71 @@ class WasapiSpectralFluxIngestor:
             self.last_kick_time = now
 
         # Snare / Mid Onset Detection
-        snare_mean = np.mean(self.snare_history) if len(self.snare_history) > 5 else 0.0
-        snare_std = np.std(self.snare_history) if len(self.snare_history) > 5 else 0.0
-        snare_threshold = snare_mean + 1.35 * snare_std + 0.03
-
-        self.snare_envelope = max(0.0, self.snare_envelope * 0.85)
+        self.snare_envelope = max(0.0, self.snare_envelope * 0.88)
         is_snare = False
         if snare_flux > snare_threshold and (now - self.last_snare_time) > 0.14:
             is_snare = True
-            self.snare_envelope = 1.0
+            self.snare_envelope = min(1.0, self.snare_envelope * 0.4 + 0.6)
             self.last_snare_time = now
 
         # Hi-Hat / High Treble Transient
-        hihat_mean = np.mean(self.hihat_history) if len(self.hihat_history) > 5 else 0.0
-        hihat_std = np.std(self.hihat_history) if len(self.hihat_history) > 5 else 0.0
-        hihat_threshold = hihat_mean + 1.30 * hihat_std + 0.02
-
-        self.hihat_envelope = max(0.0, self.hihat_envelope * 0.82)
+        self.hihat_envelope = max(0.0, self.hihat_envelope * 0.86)
         is_hihat = False
         if hihat_flux > hihat_threshold and (now - self.last_hihat_time) > 0.08:
             is_hihat = True
-            self.hihat_envelope = 1.0
+            self.hihat_envelope = min(1.0, self.hihat_envelope * 0.4 + 0.6)
             self.last_hihat_time = now
 
-        # Scaled & Normalized Metrics (0.0 to 1.0)
-        norm_sub_bass = min(1.0, float((sub_bass_mag * agc_gain) ** 1.15))
-        norm_bass = min(1.0, float((bass_mag * agc_gain) ** 1.15))
-        norm_mid = min(1.0, float((mid_mag * agc_gain) ** 1.15))
-        norm_treble = min(1.0, float((treble_mag * agc_gain * 1.5) ** 1.15))
-        norm_rms = min(1.0, float(rms_val * agc_gain))
-        norm_peak = min(1.0, float(peak_val * agc_gain))
+        # Raw Scaled Metrics
+        raw_sub_bass = min(1.0, float((sub_bass_mag * agc_gain) ** 1.15))
+        raw_bass = min(1.0, float((bass_mag * agc_gain) ** 1.15))
+        raw_mid = min(1.0, float((mid_mag * agc_gain) ** 1.15))
+        raw_treble = min(1.0, float((treble_mag * agc_gain * 1.5) ** 1.15))
+        raw_rms = min(1.0, float(rms_val * agc_gain))
+        raw_peak = min(1.0, float(peak_val * agc_gain))
 
-        # 64-Band EQ Bars Generation
+        # Asymmetric IIR Temporal Filter (Fast Attack, Silky Graceful Decay)
+        # Prevents violent jitter & visual strobing while maintaining high organic responsiveness
+        def iir_smooth(prev, target, attack=0.38, decay=0.88):
+            if target > prev:
+                return prev * (1.0 - attack) + target * attack
+            else:
+                return prev * decay + target * (1.0 - decay)
+
+        self.smooth_sub_bass = iir_smooth(self.smooth_sub_bass, raw_sub_bass, 0.40, 0.90)
+        self.smooth_bass = iir_smooth(self.smooth_bass, raw_bass, 0.45, 0.89)
+        self.smooth_mid = iir_smooth(self.smooth_mid, raw_mid, 0.35, 0.88)
+        self.smooth_treble = iir_smooth(self.smooth_treble, raw_treble, 0.35, 0.86)
+        self.smooth_rms = iir_smooth(self.smooth_rms, raw_rms, 0.30, 0.92)
+        self.smooth_peak = iir_smooth(self.smooth_peak, raw_peak, 0.50, 0.90)
+
+        # 64-Band EQ Bars with Temporal Ballistics Smoothing (aiXander & VolkanSah algorithm)
         eq_bars = []
         for i in range(64):
             idx_start = self.eq_bin_indices[i]
             idx_end = max(idx_start + 1, self.eq_bin_indices[i + 1])
             band_val = float(np.mean(magnitude[idx_start:idx_end]))
-            # Apply perceptual high-frequency pre-emphasis curve
+            # Perceptual tilt curve
             tilt = 1.0 + (i / 64.0) * 2.2
-            norm_val = int(min(255, band_val * agc_gain * tilt * 140.0))
-            eq_bars.append(norm_val)
+            norm_val = min(255.0, band_val * agc_gain * tilt * 140.0)
+
+            # Asymmetric bar decay
+            if norm_val > self.smooth_eq[i]:
+                self.smooth_eq[i] = self.smooth_eq[i] * 0.35 + norm_val * 0.65
+            else:
+                self.smooth_eq[i] = self.smooth_eq[i] * 0.88 + norm_val * 0.12
+            eq_bars.append(int(self.smooth_eq[i]))
 
         return {
             "type": "push_audio_metrics",
             "source": "python_wasapi_loopback",
             "audio": {
-                "subBass": round(norm_sub_bass, 3),
-                "bass": round(norm_bass, 3),
-                "mid": round(norm_mid, 3),
-                "treble": round(norm_treble, 3),
-                "rms": round(norm_rms, 3),
-                "peak": round(norm_peak, 3),
+                "subBass": round(self.smooth_sub_bass, 3),
+                "bass": round(self.smooth_bass, 3),
+                "mid": round(self.smooth_mid, 3),
+                "treble": round(self.smooth_treble, 3),
+                "rms": round(self.smooth_rms, 3),
+                "peak": round(self.smooth_peak, 3),
                 "beat": round(self.kick_envelope, 3),
                 "isKick": is_kick,
                 "isSnare": is_snare,
