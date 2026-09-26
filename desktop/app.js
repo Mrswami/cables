@@ -261,21 +261,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ok) {
       btnCaptureSystemAudio.style.background = 'linear-gradient(135deg, #00ff88, #00b359)';
       btnCaptureSystemAudio.textContent = '🖥️ System Audio Live Active';
+      const badge = document.getElementById('virtualCableStatusBadge');
+      if (badge) badge.textContent = '🖥️ Active: Browser System Audio Loopback';
       if (debugVisible) dbgDevice.textContent = 'System Loopback';
     }
   });
 
-  // Populate Hardware Audio Devices (JBL Headphones, Soundcard, Mic, Stereo Mix)
+  // Populate Hardware Audio Devices (VB-Cable, Voicemeeter, Headphones, Soundcard, Mic, Stereo Mix)
+  const virtualCableStatusBadge = document.getElementById('virtualCableStatusBadge');
+  const btnAutoVirtualCable = document.getElementById('btnAutoVirtualCable');
+
   async function populateHardwareDevices() {
     audioHardwareDeviceSelect.innerHTML = '<option value="">Default System Audio Device</option>';
     const devices = await audioIngest.getHardwareDevices();
     
+    let virtualCount = 0;
     devices.forEach(device => {
       const opt = document.createElement('option');
       opt.value = device.id;
       opt.textContent = device.label;
+      if (device.category === 'virtual_cable' || device.category === 'voicemeeter') {
+        opt.style.color = '#00f0ff';
+        opt.style.fontWeight = '700';
+        virtualCount++;
+      } else if (device.category === 'stereo_mix') {
+        opt.style.color = '#00ff88';
+      }
       audioHardwareDeviceSelect.appendChild(opt);
     });
+
+    if (virtualCount > 0 && btnAutoVirtualCable) {
+      btnAutoVirtualCable.innerHTML = `<span>🎛️</span><span>Auto-Select Virtual Cable (${virtualCount} Detected)</span>`;
+      btnAutoVirtualCable.style.borderColor = 'var(--accent-green)';
+    }
   }
 
   populateHardwareDevices();
@@ -284,17 +302,75 @@ document.addEventListener('DOMContentLoaded', () => {
     populateHardwareDevices();
   });
 
+  // Auto-Select Virtual Cable Button Handler
+  if (btnAutoVirtualCable) {
+    btnAutoVirtualCable.addEventListener('click', async () => {
+      const result = await audioIngest.autoDetectVirtualCable();
+      if (result.success && result.device) {
+        audioHardwareDeviceSelect.value = result.device.id;
+        if (virtualCableStatusBadge) {
+          virtualCableStatusBadge.textContent = `🎛️ Digital Link: ${result.device.rawLabel} (Active)`;
+          virtualCableStatusBadge.style.color = '#00ff88';
+          virtualCableStatusBadge.style.borderColor = '#00ff88';
+        }
+        btnAutoVirtualCable.style.background = 'linear-gradient(135deg, rgba(0, 255, 136, 0.4), rgba(0, 240, 255, 0.4))';
+        btnAutoVirtualCable.style.borderColor = '#00ff88';
+        if (debugVisible) dbgDevice.textContent = result.device.rawLabel;
+      } else {
+        alert(
+          'Virtual Cable Search Result:\n\n' +
+          'No VB-Audio Virtual Cable or Voicemeeter device was detected as an active recording input.\n\n' +
+          'Quick 2-Minute Fix:\n' +
+          '1. Install VB-CABLE Driver (free from vb-audio.com) or Voicemeeter Banana.\n' +
+          '2. In Windows Sound Settings, set Output to "CABLE Input".\n' +
+          '3. In Windows Sound Control Panel -> Recording -> "CABLE Output" -> Listen -> check "Listen to this device" with your headphones selected.\n' +
+          '4. Click Rescan and select CABLE Output.'
+        );
+      }
+    });
+  }
+
   // Switch Selected Audio Hardware Device
-    audioHardwareDeviceSelect.addEventListener('change', async (e) => {
+  audioHardwareDeviceSelect.addEventListener('change', async (e) => {
     const deviceId = e.target.value;
     await audioIngest.startAudioDevice(deviceId || null);
+    const opt = audioHardwareDeviceSelect.options[audioHardwareDeviceSelect.selectedIndex];
+    const devLabel = opt ? opt.textContent : 'Default System Audio';
+    if (virtualCableStatusBadge) {
+      virtualCableStatusBadge.textContent = `🎧 Active Input: ${devLabel.substring(0, 32)}`;
+    }
     if (debugVisible) {
-      const opt = audioHardwareDeviceSelect.options[audioHardwareDeviceSelect.selectedIndex];
-      dbgDevice.textContent = opt ? opt.textContent.substring(0, 30) : '—';
+      dbgDevice.textContent = devLabel.substring(0, 30);
     }
   });
 
-  // Reconnect / Restart Python WASAPI Loopback Bridge
+  // Reconnect / Restart Python WASAPI Loopback Bridge & Dynamic Status Listener
+  const badgePython = document.getElementById('badgePythonStatus');
+  const pythonDeviceInfo = document.getElementById('pythonDeviceInfo');
+
+  audioIngest.onStatusChange = (status) => {
+    if (!badgePython) return;
+    if (status === 'connected') {
+      badgePython.textContent = '● LIVE LOOPBACK';
+      badgePython.style.background = 'rgba(0, 255, 136, 0.25)';
+      badgePython.style.color = '#00ff88';
+      badgePython.style.borderColor = '#00ff88';
+      if (pythonDeviceInfo && audioIngest.pythonDeviceName) {
+        pythonDeviceInfo.textContent = `🎧 ${audioIngest.pythonDeviceName}`;
+      }
+    } else if (status === 'connecting') {
+      badgePython.textContent = '● CONNECTING...';
+      badgePython.style.background = 'rgba(255, 183, 0, 0.2)';
+      badgePython.style.color = '#ffb700';
+      badgePython.style.borderColor = 'rgba(255, 183, 0, 0.4)';
+    } else {
+      badgePython.textContent = '● STANDBY (Web Mode)';
+      badgePython.style.background = 'rgba(0, 240, 255, 0.1)';
+      badgePython.style.color = 'var(--accent-cyan)';
+      badgePython.style.borderColor = 'rgba(0, 240, 255, 0.2)';
+    }
+  };
+
   const btnRestartPythonBridge = document.getElementById('btnRestartPythonBridge');
   if (btnRestartPythonBridge) {
     btnRestartPythonBridge.addEventListener('click', () => {
@@ -306,13 +382,12 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         } catch (err) {}
       }
-      audioIngest.connectWebSocketSync();
-      const badgePython = document.getElementById('badgePythonStatus');
       if (badgePython) {
-        badgePython.textContent = '● RECONNECTING...';
+        badgePython.textContent = '● CONNECTING...';
         badgePython.style.background = 'rgba(255, 183, 0, 0.2)';
         badgePython.style.color = '#ffb700';
       }
+      audioIngest.connectWebSocketSync();
     });
   }
 

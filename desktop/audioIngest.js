@@ -38,6 +38,11 @@ class TouchArtAudioIngest {
       lfoSaw: 0
     };
 
+    this.wsState = 'standby';
+    this.pythonDeviceName = null;
+    this.activeSourceType = 'hardware'; // 'virtual_cable', 'hardware', 'wasapi_loopback', 'simulation', 'system_loopback'
+    this.onStatusChange = null;
+
     this.connectWebSocketSync();
   }
 
@@ -54,7 +59,8 @@ class TouchArtAudioIngest {
   }
 
   /**
-   * Enumerate all connected audio hardware devices (Headphones, Soundcard, Mic, Bluetooth, Stereo Mix)
+   * Enumerate all connected audio input hardware devices (VB-Cable, Voicemeeter, Stereo Mix, Soundcard, Mic)
+   * Strictly filters to 'audioinput' so all items are capturable via getUserMedia
    */
   async getHardwareDevices() {
     try {
@@ -63,17 +69,61 @@ class TouchArtAudioIngest {
       }).catch(() => {});
 
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioDevices = devices.filter(device => device.kind === 'audioinput' || device.kind === 'audiooutput');
+      const audioInputs = devices.filter(device => device.kind === 'audioinput');
       
-      return audioDevices.map((d, index) => ({
-        id: d.deviceId,
-        label: d.label || `Audio Device ${index + 1} (${d.kind === 'audiooutput' ? 'Headphones/Speakers' : 'Input'})`,
-        kind: d.kind
-      }));
+      return audioInputs.map((d, index) => {
+        const rawLabel = d.label || `Audio Input ${index + 1}`;
+        const lower = rawLabel.toLowerCase();
+        
+        let category = 'mic';
+        let formattedLabel = rawLabel;
+
+        if (lower.includes('cable') || lower.includes('vb-audio') || lower.includes('virtual') || lower.includes('vac')) {
+          category = 'virtual_cable';
+          formattedLabel = `🎛️ Virtual Cable: ${rawLabel}`;
+        } else if (lower.includes('voicemeeter') || lower.includes('banana') || lower.includes('vaio')) {
+          category = 'voicemeeter';
+          formattedLabel = `🎛️ Voicemeeter: ${rawLabel}`;
+        } else if (lower.includes('stereo mix') || lower.includes('wave out') || lower.includes('what u hear') || lower.includes('stereomix')) {
+          category = 'stereo_mix';
+          formattedLabel = `🔊 Stereo Mix: ${rawLabel}`;
+        } else {
+          category = 'hardware';
+          formattedLabel = `🎧 ${rawLabel}`;
+        }
+
+        return {
+          id: d.deviceId,
+          rawLabel: rawLabel,
+          label: formattedLabel,
+          category: category,
+          kind: d.kind
+        };
+      });
     } catch (err) {
       console.error('[Audio Ingest] Could not enumerate devices:', err);
       return [];
     }
+  }
+
+  /**
+   * Automatically detect and select the best Virtual Cable / Voicemeeter / Stereo Mix device
+   */
+  async autoDetectVirtualCable() {
+    const devices = await this.getHardwareDevices();
+    const virtualDev = devices.find(d => d.category === 'virtual_cable' || d.category === 'voicemeeter');
+    if (virtualDev) {
+      const ok = await this.startAudioDevice(virtualDev.id);
+      return { success: ok, device: virtualDev, type: 'virtual_cable' };
+    }
+
+    const stereoMix = devices.find(d => d.category === 'stereo_mix');
+    if (stereoMix) {
+      const ok = await this.startAudioDevice(stereoMix.id);
+      return { success: ok, device: stereoMix, type: 'stereo_mix' };
+    }
+
+    return { success: false, device: null, type: null, allDevices: devices };
   }
 
   /**
@@ -83,6 +133,7 @@ class TouchArtAudioIngest {
     try {
       this.initAudioContext();
       this.isSimulating = false;
+      this.activeSourceType = 'system_loopback';
 
       if (this.micStream) {
         this.micStream.getTracks().forEach(t => t.stop());
@@ -118,7 +169,7 @@ class TouchArtAudioIngest {
   }
 
   /**
-   * Capture specific hardware device (e.g. JBL Vibe Beam 2, Realtek Soundcard, Stereo Mix)
+   * Capture specific hardware / virtual cable device (e.g. VB-Cable, Voicemeeter, JBL, Realtek)
    */
   async startAudioDevice(deviceId = null) {
     try {
@@ -156,9 +207,14 @@ class TouchArtAudioIngest {
 
   connectWebSocketSync() {
     try {
+      this.wsState = 'connecting';
+      if (this.onStatusChange) this.onStatusChange(this.wsState);
+
       this.ws = new WebSocket('ws://localhost:8080');
       this.ws.onopen = () => {
+        this.wsState = 'connected';
         console.log('[Audio Ingest] Connected to Cables WebSocket server (ws://localhost:8080)');
+        if (this.onStatusChange) this.onStatusChange(this.wsState);
       };
       this.ws.onmessage = (event) => {
         try {
@@ -180,10 +236,19 @@ class TouchArtAudioIngest {
           }
         } catch (e) {}
       };
-      this.ws.onclose = () => {
-        setTimeout(() => this.connectWebSocketSync(), 2000);
+      this.ws.onerror = () => {
+        this.wsState = 'offline';
+        if (this.onStatusChange) this.onStatusChange(this.wsState);
       };
-    } catch (e) {}
+      this.ws.onclose = () => {
+        this.wsState = 'offline';
+        if (this.onStatusChange) this.onStatusChange(this.wsState);
+        setTimeout(() => this.connectWebSocketSync(), 5000);
+      };
+    } catch (e) {
+      this.wsState = 'offline';
+      if (this.onStatusChange) this.onStatusChange(this.wsState);
+    }
   }
 
   processAudioLoop() {

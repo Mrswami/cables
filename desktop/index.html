@@ -432,41 +432,67 @@
           </div>
         </div>
 
-        <!-- Python WASAPI Loopback Engine (Bit-Perfect System Audio) -->
-        <div class="param-group" style="border-color: rgba(0, 255, 136, 0.45); background: rgba(0, 255, 136, 0.04);">
-          <div class="param-group-title" style="color: var(--accent-green); display: flex; justify-content: space-between; align-items: center;">
-            <span>🐍 Python WASAPI Loopback</span>
-            <span id="badgePythonStatus" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: rgba(0, 255, 136, 0.2); color: #00ff88; border: 1px solid rgba(0, 255, 136, 0.4);">
-              ● CONNECTING...
-            </span>
-          </div>
-          <div id="pythonDeviceInfo" style="font-size: 0.72rem; color: var(--text-primary); margin-bottom: 6px; font-family: var(--font-code);">
-            🎧 Device: Scanning system loopback...
-          </div>
-          <div style="display: flex; gap: 6px;">
-            <button id="btnRestartPythonBridge" class="btn-header" style="flex: 1; font-size: 0.72rem; padding: 4px 8px; background: rgba(0, 255, 136, 0.15); border-color: var(--accent-green);">
-              🔄 Reconnect WASAPI
-            </button>
-          </div>
-        </div>
-
-        <!-- Hardware Audio Devices & Troubleshooting -->
-        <div class="param-group" style="border-color: rgba(0, 240, 255, 0.4); background: rgba(0, 240, 255, 0.05);">
+        <!-- Digital Audio & Virtual Cable Ingestion (VB-Cable / Voicemeeter / Banana) -->
+        <div class="param-group" style="border-color: rgba(0, 240, 255, 0.45); background: rgba(0, 240, 255, 0.04);">
           <div class="param-group-title" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center;">
-            <span>Audio Devices & Live Boost</span>
-            <button id="btnRefreshHardware" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; font-size: 0.75rem;">🔄 Rescan</button>
+            <span>🎛️ Digital Audio & Virtual Cables</span>
+            <button id="btnRefreshHardware" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; font-size: 0.72rem;">🔄 Rescan</button>
           </div>
+
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 8px;">
+            Lossless digital sound from VB-Cable, Voicemeeter Banana, Stereo Mix or Soundcards.
+          </div>
+
+          <!-- 1-Click Auto-Select Virtual Cable -->
+          <button id="btnAutoVirtualCable" class="btn-header" style="width: 100%; font-size: 0.74rem; background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(0, 255, 136, 0.25)); border-color: var(--accent-cyan); color: #00f0ff; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>🎛️</span>
+            <span>Auto-Select Virtual Cable (VB-Audio / Voicemeeter)</span>
+          </button>
 
           <div class="slider-row" style="margin-bottom: 8px;">
-            <label for="audioHardwareDeviceSelect" style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Hardware Soundcard / Headset:</label>
+            <label for="audioHardwareDeviceSelect" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 3px;">Input Soundcard / Virtual Audio Device:</label>
             <select id="audioHardwareDeviceSelect" style="width: 100%; background: #000; color: #00f0ff; border: 1px solid var(--border-color); padding: 6px; border-radius: 6px; font-size: 0.75rem;">
               <option value="">Default System Audio Device</option>
             </select>
           </div>
 
-          <button id="btnCaptureSystemAudio" class="btn-header" style="width: 100%; font-size: 0.75rem; background: linear-gradient(135deg, #00f0ff, #0088ff); color: #000; margin-bottom: 8px;">
-            🖥️ Capture System Audio (Desktop Playback)
+          <div id="virtualCableStatusBadge" style="font-size: 0.68rem; padding: 4px 8px; border-radius: 4px; background: rgba(0, 240, 255, 0.08); color: var(--accent-cyan); border: 1px solid rgba(0, 240, 255, 0.2); margin-bottom: 8px; font-family: var(--font-code);">
+            🎧 Active Input: Default Audio
+          </div>
+
+          <button id="btnCaptureSystemAudio" class="btn-header" style="width: 100%; font-size: 0.72rem; background: rgba(255, 255, 255, 0.06); margin-bottom: 8px;">
+            🖥️ Capture System Audio (Browser Share Audio)
           </button>
+
+          <!-- Collapsible Virtual Cable Routing Guide -->
+          <details style="margin-top: 4px; font-size: 0.68rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px; padding: 6px 8px; cursor: pointer;">
+            <summary style="font-weight: 600; color: var(--accent-amber); cursor: pointer; outline: none;">
+              📖 How to Route Audio with VB-Cable / Banana
+            </summary>
+            <div style="margin-top: 6px; line-height: 1.4; color: var(--text-primary); cursor: default;">
+              <p style="margin-bottom: 4px;"><strong>Step 1:</strong> In Windows Sound Settings or DAW (Spotify / Ableton / YouTube), set <em>Output</em> to <code>CABLE Input (VB-Audio)</code> or <code>Voicemeeter VAIO</code>.</p>
+              <p style="margin-bottom: 4px;"><strong>Step 2:</strong> In TouchArt Studio, click <strong>"Auto-Select Virtual Cable"</strong> or select <code>CABLE Output</code>.</p>
+              <p><strong>Step 3 (Hear it live):</strong> In Windows Sound Control Panel → <em>Recording</em> → <code>CABLE Output</code> → <em>Properties</em> → <em>Listen</em> → check <em>"Listen to this device"</em> through your JBL / Headphones!</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- Optional Python WASAPI Sidecar Bridge -->
+        <div class="param-group" style="border-color: rgba(0, 255, 136, 0.3); background: rgba(0, 255, 136, 0.02);">
+          <div class="param-group-title" style="color: var(--accent-green); display: flex; justify-content: space-between; align-items: center;">
+            <span>🐍 Python WASAPI Loopback</span>
+            <span id="badgePythonStatus" style="font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; background: rgba(0, 240, 255, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 240, 255, 0.2);">
+              ● STANDBY (Web Mode)
+            </span>
+          </div>
+          <div id="pythonDeviceInfo" style="font-size: 0.70rem; color: var(--text-muted); margin-bottom: 6px; font-family: var(--font-code);">
+            💡 Run <code>npm run bridge</code> or Electron for background WASAPI loopback.
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button id="btnRestartPythonBridge" class="btn-header" style="flex: 1; font-size: 0.70rem; padding: 4px 8px; background: rgba(0, 255, 136, 0.1); border-color: rgba(0, 255, 136, 0.3);">
+              🔄 Connect Local Bridge (ws://localhost:8080)
+            </button>
+          </div>
         </div>
 
         <!-- Audio Sensitivity & AGC Boost -->
