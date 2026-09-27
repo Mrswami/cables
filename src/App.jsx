@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import './index.css';
 
 // --- ICONS ---
@@ -79,6 +80,30 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'engine' | 'palette' | 'postfx' | 'layout'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [keepAwake, setKeepAwake] = useState(true);
+
+  const [nativeDevices, setNativeDevices] = useState([]);
+  const [selectedNativeDevice, setSelectedNativeDevice] = useState('');
+  const [isTauriEnv, setIsTauriEnv] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
+        setIsTauriEnv(true);
+        invoke('get_audio_devices').then((devices) => {
+          setNativeDevices(devices);
+          if (devices.length > 0) {
+            setSelectedNativeDevice(devices[0]);
+          }
+        }).catch(err => console.error("Failed to get audio devices", err));
+      }
+    } catch(e) {}
+  }, []);
+
+  const handleDeviceChange = (e) => {
+    const val = e.target.value;
+    setSelectedNativeDevice(val);
+    invoke('set_audio_device', { name: val }).catch(err => console.error("Failed to set device", err));
+  };
 
   // Live RMS Audio Levels for Strips
   const [levels, setLevels] = useState({ low: 0, mid: 0, high: 0, peak: 0, sub: 0 });
@@ -1411,10 +1436,20 @@ export default function App() {
             id="btn-capture-tab"
             className={`transport-btn capture-btn ${sourceType === 'tab' ? 'active-tab' : ''}`}
             onClick={captureTabAudio}
-            title="Best in Edge/Chrome: pick a tab/window and toggle 'Share with system audio' at the bottom of the share dialog. Firefox works too but requires a separate audio permission step."
+            title={isTauriEnv ? "Start Native Audio Engine" : "Capture Tab Audio"}
           >
-            <Icons.Monitor /> Connect Native Audio
+            <Icons.Monitor /> {isTauriEnv ? 'Start Native Engine' : 'Connect Native Audio'}
           </button>
+          {isTauriEnv && nativeDevices.length > 0 && (
+            <select 
+              value={selectedNativeDevice} 
+              onChange={handleDeviceChange}
+              className="transport-btn"
+              style={{ padding: '0 8px', maxWidth: '200px', textOverflow: 'ellipsis', background: 'rgba(255,255,255,0.1)' }}
+            >
+              {nativeDevices.map(d => <option key={d} value={d} style={{ color: '#000' }}>{d}</option>)}
+            </select>
+          )}
           <button
             id="btn-capture-mic"
             className={`transport-btn capture-btn ${sourceType === 'tauri' ? 'active-mic' : ''}`}
@@ -1500,20 +1535,37 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="idle-actions">
-                <button className="idle-action-btn primary" onClick={captureTabAudio}>
-                  <Icons.Monitor /> Connect Native Audio
-                  <span className="idle-action-sub">Tauri Desktop &middot; Zero-Latency WASAPI</span>
-                </button>
-                <a 
-                  href="/Cables_2.0_Setup.zip" 
-                  download 
-                  className="idle-action-btn" 
-                  style={{ textDecoration: 'none', background: '#7928ca' }}
-                >
-                  <Icons.Play /> Download Pro Desktop
-                  <span className="idle-action-sub">Standalone Windows 11 App (Zero Latency)</span>
-                </a>
+              <div className="idle-actions" style={{ flexDirection: 'column', gap: '16px' }}>
+                {isTauriEnv && nativeDevices.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#888' }}>SELECT AUDIO DEVICE</span>
+                    <select 
+                      value={selectedNativeDevice} 
+                      onChange={handleDeviceChange}
+                      style={{ padding: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid #333', maxWidth: '300px' }}
+                    >
+                      {nativeDevices.map(d => <option key={d} value={d} style={{ color: '#000' }}>{d}</option>)}
+                    </select>
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', width: '100%' }}>
+                  <button className="idle-action-btn primary" onClick={captureTabAudio}>
+                    <Icons.Monitor /> {isTauriEnv ? 'Start Visualizer' : 'Connect Native Audio'}
+                    <span className="idle-action-sub">{isTauriEnv ? 'Listen to selected device' : 'Tauri Desktop & Zero-Latency WASAPI'}</span>
+                  </button>
+                  {!isTauriEnv && (
+                    <a 
+                      href="/Cables_2.0_Setup.zip" 
+                      download 
+                      className="idle-action-btn" 
+                      style={{ textDecoration: 'none', background: '#7928ca' }}
+                    >
+                      <Icons.Play /> Download Pro Desktop
+                      <span className="idle-action-sub">Standalone Windows 11 App (Zero Latency)</span>
+                    </a>
+                  )}
+                </div>
               </div>
               {error && <div className="error-callout">{error}</div>}
             </div>
