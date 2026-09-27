@@ -30,7 +30,7 @@ fn main() {
                     if let Ok(mut ws_stream) = tokio_tungstenite::accept_async(stream).await {
                         while let Ok(frame) = rx.recv().await {
                             if ws_stream
-                                .send(tokio_tungstenite::tungstenite::Message::Binary(frame))
+                                .send(tokio_tungstenite::tungstenite::Message::Binary(frame.into()))
                                 .await
                                 .is_err()
                             {
@@ -68,7 +68,7 @@ fn main() {
         let stream_config: cpal::StreamConfig = config.clone().into();
         let stream = match config.sample_format() {
             cpal::SampleFormat::F32 => device.build_input_stream(
-                &stream_config,
+                stream_config.clone().into(),
                 move |data: &[f32], _: &_| {
                     // Downmix to mono and collect
                     for frame in data.chunks(channels) {

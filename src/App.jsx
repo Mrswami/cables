@@ -1505,6 +1505,15 @@ export default function App() {
                   <Icons.Monitor /> Connect Native Audio
                   <span className="idle-action-sub">Tauri Desktop &middot; Zero-Latency WASAPI</span>
                 </button>
+                <a 
+                  href="/Cables_2.0_Setup.exe" 
+                  download 
+                  className="idle-action-btn" 
+                  style={{ textDecoration: 'none', background: '#7928ca' }}
+                >
+                  <Icons.Play /> Download Pro Desktop
+                  <span className="idle-action-sub">Standalone Windows 11 App (Zero Latency)</span>
+                </a>
               </div>
               {error && <div className="error-callout">{error}</div>}
             </div>
