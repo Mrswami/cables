@@ -43,7 +43,7 @@ body {
 /* --- MAIN DAW LAYOUT --- */
 .daw-layout {
   display: grid;
-  grid-template-rows: 52px 1fr 280px;
+  grid-template-rows: 52px 1fr 270px;
   height: 100vh;
   width: 100vw;
   background: var(--bg-dark);
@@ -504,13 +504,14 @@ body {
 /* TAB 1: MODULATION MATRIX GRID */
 .rack-device-grid {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
+  height: 100%;
 }
 
 .device-channel {
-  flex: 1;
-  min-width: 170px;
+  flex: 1 1 0;
+  min-width: 0;
   background: var(--bg-dark);
   border: 1px solid var(--border-light);
   border-radius: 8px;
@@ -520,7 +521,7 @@ body {
 }
 
 .device-channel.master-channel {
-  flex: 0.8;
+  flex: 0.75 1 0;
   border-color: #3b3b4f;
 }
 
@@ -528,27 +529,31 @@ body {
   font-size: 10px;
   font-weight: 700;
   color: #000;
-  padding: 4px 8px;
+  padding: 4px 6px;
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .channel-body {
   display: flex;
-  padding: 10px;
-  gap: 10px;
+  padding: 8px;
+  gap: 8px;
   flex-grow: 1;
 }
 
 .meter-container {
-  width: 10px;
+  width: 8px;
   background: #000;
   border-radius: 3px;
   overflow: hidden;
   display: flex;
   align-items: flex-end;
   border: 1px solid var(--border-light);
+  flex-shrink: 0;
 }
 
 .meter-bar {
@@ -560,8 +565,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  width: 44px;
+  gap: 4px;
+  width: 38px;
+  flex-shrink: 0;
 }
 
 .strip-title {
@@ -576,8 +582,8 @@ body {
   -webkit-appearance: none;
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 28px;
-  height: 90px;
+  width: 24px;
+  height: 85px;
   background: var(--bg-panel-light);
   border-radius: 4px;
   border: 1px solid var(--border-light);
@@ -587,7 +593,7 @@ body {
 
 .fader-input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 24px;
+  width: 22px;
   height: 12px;
   background: #d4d4d8;
   border-top: 2px solid #ffffff;
@@ -599,26 +605,28 @@ body {
 
 .fader-val {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-active);
 }
 
 .matrix-routing-box {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex-grow: 1;
+  min-width: 0;
   background: var(--bg-panel-light);
-  padding: 8px;
+  padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid var(--border-light);
 }
 
 .matrix-routing-box label {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .matrix-select {
@@ -626,8 +634,8 @@ body {
   border: 1px solid var(--border-light);
   color: var(--text-active);
   font-family: var(--font-main);
-  font-size: 11px;
-  padding: 4px 6px;
+  font-size: 10px;
+  padding: 4px 5px;
   border-radius: 4px;
   outline: none;
   width: 100%;

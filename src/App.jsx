@@ -359,7 +359,7 @@ export default function App() {
     const st = stateRef.current;
     st.time += 0.015 * st.params.speed;
 
-    // Calculate detailed frequency sub-bands
+    // Calculate detailed frequency sub-bands with amplified dynamic curves
     let subSum = 0, lowSum = 0, midSum = 0, highSum = 0;
     for (let i = 0; i < 15; i++) subSum += freqData[i];       // 0 - 60 Hz Sub
     for (let i = 15; i < 60; i++) lowSum += freqData[i];      // 60 - 250 Hz Bass
@@ -372,35 +372,36 @@ export default function App() {
     const rawHigh = (highSum / 674) / 255;
     const peak = Math.max(...freqData) / 255;
 
+    // Apply quadratic response curve for punchy, reactive visuals
     const bands = {
-      sub: rawSub * (st.subGain / 100),
-      low: rawLow * (st.lowGain / 100),
-      mid: rawMid * (st.midGain / 100),
-      high: rawHigh * (st.highGain / 100),
-      master: st.masterGain / 100
+      sub: Math.pow(rawSub, 1.2) * (st.subGain / 100) * 1.5,
+      low: Math.pow(rawLow, 1.2) * (st.lowGain / 100) * 1.4,
+      mid: Math.pow(rawMid, 1.1) * (st.midGain / 100) * 1.3,
+      high: Math.pow(rawHigh, 1.0) * (st.highGain / 100) * 1.5,
+      master: (st.masterGain / 100)
     };
 
     setLevels({
-      sub: bands.sub,
-      low: bands.low,
-      mid: bands.mid,
-      high: bands.high,
+      sub: Math.min(1, bands.sub),
+      low: Math.min(1, bands.low),
+      mid: Math.min(1, bands.mid),
+      high: Math.min(1, bands.high),
       peak
     });
 
-    // Matrix modulated outputs
-    const geomMod = getModValue('geometry', bands);
-    const repMod = getModValue('repetition', bands);
-    const warpMod = getModValue('warp', bands);
-    const partMod = getModValue('particles', bands);
-    const chromaMod = getModValue('chroma', bands) + (st.params.chroma / 100);
-    const bloomMod = getModValue('bloom', bands) + (st.params.bloom / 100);
+    // Matrix modulated outputs with amplified response factors
+    const geomMod = getModValue('geometry', bands) * 1.8;
+    const repMod = getModValue('repetition', bands) * 1.6;
+    const warpMod = getModValue('warp', bands) * 1.7;
+    const partMod = getModValue('particles', bands) * 1.8;
+    const chromaMod = getModValue('chroma', bands) * 1.5 + (st.params.chroma / 100);
+    const bloomMod = getModValue('bloom', bands) * 1.5 + (st.params.bloom / 100);
     const grainMod = getModValue('grain', bands) + (st.params.grain / 100);
-    const rotMod = getModValue('rotation', bands);
-    const hueMod = getModValue('hue', bands);
+    const rotMod = getModValue('rotation', bands) * 2.0;
+    const hueMod = getModValue('hue', bands) * 2.0;
 
-    st.rot += 0.005 + (rotMod * 0.05);
-    st.tunnelZ += (0.05 + warpMod * 0.2) * st.params.speed;
+    st.rot += 0.006 + (rotMod * 0.08);
+    st.tunnelZ += (0.05 + warpMod * 0.35) * st.params.speed;
 
     // Palette Colors Lookup & Interpolator
     const currentPal = PALETTES.find(p => p.id === st.activePalette) || PALETTES[0];
@@ -435,35 +436,35 @@ export default function App() {
       ctx.translate(cx, cy);
       ctx.rotate(st.rot);
 
-      const petals = Math.max(3, Math.round(st.params.repetition + repMod * 6));
-      const rings = Math.max(2, Math.round(st.params.density + geomMod * 8));
-      const baseRadius = Math.min(W, H) * 0.28 * (1 + bands.sub * 0.4);
+      const petals = Math.max(3, Math.round(st.params.repetition + repMod * 10));
+      const rings = Math.max(2, Math.round(st.params.density + geomMod * 12));
+      const baseRadius = Math.min(W, H) * 0.28 * (1 + bands.sub * 0.75);
 
       for (let r = 1; r <= rings; r++) {
-        const ringRad = (baseRadius / rings) * r * (1 + bands.low * 0.3);
+        const ringRad = (baseRadius / rings) * r * (1 + bands.low * 0.6);
         const col = palColors[(r - 1) % palColors.length];
 
         ctx.strokeStyle = col;
-        ctx.lineWidth = 1.5 + bloomMod * 2.0;
-        ctx.shadowBlur = 12 * Math.min(bloomMod, 2);
+        ctx.lineWidth = (1.5 + bloomMod * 2.5) * (1 + bands.low * 0.5);
+        ctx.shadowBlur = 14 * Math.min(bloomMod, 2);
         ctx.shadowColor = col;
 
         for (let p = 0; p < petals; p++) {
           const angle = (p / petals) * Math.PI * 2;
           const px = Math.cos(angle) * ringRad;
           const py = Math.sin(angle) * ringRad;
-          const petalRadius = (ringRad * 0.5) * (1 + bands.mid * 0.8);
+          const petalRadius = (ringRad * 0.5) * (1 + bands.mid * 1.5);
 
           ctx.beginPath();
-          ctx.arc(px, py, petalRadius, 0, Math.PI * 2);
+          ctx.arc(px, py, Math.max(1, petalRadius), 0, Math.PI * 2);
           ctx.stroke();
 
           // Concentric geometric star polygons
-          if (r % 2 === 0 && bands.high > 0.15) {
+          if (r % 2 === 0 && bands.high > 0.12) {
             const innerCol = palColors[(r + 1) % palColors.length];
             ctx.fillStyle = innerCol;
             ctx.beginPath();
-            ctx.arc(px, py, petalRadius * 0.3, 0, Math.PI * 2);
+            ctx.arc(px, py, Math.max(1, petalRadius * (0.3 + bands.high * 0.4)), 0, Math.PI * 2);
             ctx.fill();
           }
         }
