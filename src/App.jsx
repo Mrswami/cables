@@ -115,6 +115,14 @@ export default function App() {
     wireframeDetail: 32,
     particleCount: 800,
 
+    // Specterr Contour & Transparency Parameters (app.specterr.com inspired)
+    outlineWidth: 6,
+    outlineSegments: 16,
+    outlineColor: '#000000',
+    transparency: 40,
+    transparentMode: true,
+    showSpecterrRing: true,
+
     // 1. Sacred Fractals
     sacredRings: 8,
     sacredPetals: 6,
@@ -645,14 +653,35 @@ export default function App() {
     const c0 = palColors[(0 + colorOffset) % palColors.length];
     const c1 = palColors[(1 + colorOffset) % palColors.length];
 
+    // Specterr Contour & Transparency Parameters (app.specterr.com)
+    const outWidth = Math.max(0, Number(st.params.outlineWidth ?? 6));
+    const outSegs = Math.max(0, Number(st.params.outlineSegments ?? 16));
+    const rawOutColor = st.params.outlineColor ?? '#000000';
+    const outColor = rawOutColor === 'palette' ? c0 : rawOutColor;
+    const isTransparent = st.params.transparentMode ?? true;
+    const transparencyPercent = Number(st.params.transparency ?? 40);
+    const fillAlpha = isTransparent ? Math.max(0, 1 - (transparencyPercent / 100)) : 1.0;
+
+    // Helper for applying Specterr outline segmentation dash pattern
+    const applySegments = (targetCtx, segCount, baseRadius = 100) => {
+      if (segCount > 0) {
+        const segDash = Math.max(4, (baseRadius * Math.PI * 2) / (segCount * 2.8));
+        const segGap = Math.max(3, 4 + bands.high * 8);
+        targetCtx.setLineDash([segDash, segGap]);
+      } else {
+        targetCtx.setLineDash([]);
+      }
+    };
+
     // Background Decay & Trail Rendering (Never let canvas blow out to pure white)
     ctx.save();
     if (st.params.strobe > 0 && peak > 0.92 && Math.random() < st.params.strobe / 100) {
       ctx.fillStyle = `rgba(255, 255, 255, ${0.15 * Math.min(bloomMod, 1.5)})`;
       ctx.fillRect(0, 0, W, H);
     } else {
-      // High-contrast deep dark trailing decay
-      ctx.fillStyle = 'rgba(8, 8, 12, 0.22)';
+      // High-contrast deep dark trailing decay - adapts dynamically if transparency mode is enabled
+      const bgOpacity = isTransparent ? 0.32 : 0.22;
+      ctx.fillStyle = `rgba(8, 8, 12, ${bgOpacity})`;
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
@@ -713,17 +742,43 @@ export default function App() {
           const py = Math.sin(angle) * (ringRad + waveRipple);
           const petalRadius = (ringRad * 0.5) * (1 + bands.mid * 1.5 + massMod * 0.8);
 
+          // Apply Specterr outline segments if enabled
+          applySegments(ctx, outSegs, petalRadius);
+
+          // Layer 1: Specterr Contrast Outline Stroke
+          if (outWidth > 0) {
+            ctx.save();
+            ctx.strokeStyle = outColor;
+            ctx.lineWidth = ((strokeW + bloomMod * 2.5) * (1 + bands.low * 0.5)) + outWidth * 2;
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(px, py, Math.max(1, petalRadius), 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Layer 2: Main Paletted Stroke with Transparency fill
           ctx.beginPath();
           ctx.arc(px, py, Math.max(1, petalRadius), 0, Math.PI * 2);
+          if (fillAlpha > 0.05 && fillAlpha < 0.99) {
+            ctx.save();
+            ctx.fillStyle = col;
+            ctx.globalAlpha = 0.08 * fillAlpha;
+            ctx.fill();
+            ctx.restore();
+          }
           ctx.stroke();
 
           // Laser Starburst filaments
           if (laserMod > 0.08 || (r % 2 === 0 && bands.high > 0.12)) {
             const innerCol = palColors[(r + 1 + colorOffset) % palColors.length];
+            ctx.save();
             ctx.fillStyle = innerCol;
+            ctx.globalAlpha = fillAlpha;
             ctx.beginPath();
             ctx.arc(px, py, Math.max(1, petalRadius * (0.3 + (bands.high + laserMod) * 0.5)), 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
 
             // Direct laser ray from center to petal
             if (laserMod > 0.12 && p % 2 === 0) {
@@ -737,6 +792,7 @@ export default function App() {
           }
         }
       }
+      ctx.setLineDash([]);
       ctx.restore();
     }
 
@@ -786,10 +842,33 @@ export default function App() {
         const col = palColors[(i + colorOffset) % palColors.length];
 
         ctx.strokeStyle = col;
-        ctx.lineWidth = (1 - depth) * (3 + bands.low * 4 + massMod * 3) + bloomMod * 2;
+        const mainLineW = (1 - depth) * (3 + bands.low * 4 + massMod * 3) + bloomMod * 2;
+        ctx.lineWidth = mainLineW;
         ctx.shadowBlur = 14 * Math.min(bloomMod, 2) * (1 - depth);
         ctx.shadowColor = col;
 
+        applySegments(ctx, outSegs, scale);
+
+        // Layer 1: Contrast Outline Stroke
+        if (outWidth > 0) {
+          ctx.save();
+          ctx.strokeStyle = outColor;
+          ctx.lineWidth = mainLineW + outWidth * 2;
+          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          for (let s = 0; s <= sides; s++) {
+            const midRipple = Math.sin(s * 2 + st.time * 6) * ((bands.mid + waveMod) * 35 * depth);
+            const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2 + bands.mid * 1.5);
+            const x = Math.cos(a) * (scale + midRipple);
+            const y = Math.sin(a) * (scale + midRipple);
+            s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Layer 2: Main Paletted Stroke
         ctx.beginPath();
         for (let s = 0; s <= sides; s++) {
           const midRipple = Math.sin(s * 2 + st.time * 6) * ((bands.mid + waveMod) * 35 * depth);
@@ -799,6 +878,13 @@ export default function App() {
           s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
         ctx.closePath();
+        if (fillAlpha > 0.05 && fillAlpha < 0.95 && i % 2 === 0) {
+          ctx.save();
+          ctx.fillStyle = col;
+          ctx.globalAlpha = 0.04 * fillAlpha;
+          ctx.fill();
+          ctx.restore();
+        }
         ctx.stroke();
 
         // Inner Resonator Rings
@@ -812,17 +898,26 @@ export default function App() {
           ctx.stroke();
         }
       }
+      ctx.setLineDash([]);
 
-      // Center Singularity
+      // Center Singularity with Transparency
       const baseCore = st.params.tunnelCoreSize || 20;
       const coreSize = (baseCore + (bands.sub + shockMod) * 40 + bands.low * 15) * (1 + bloomMod * 0.5);
       const coreCol = palColors[colorOffset % palColors.length];
+      ctx.save();
       ctx.fillStyle = coreCol;
+      ctx.globalAlpha = fillAlpha;
       ctx.shadowBlur = 25 * Math.min(bloomMod, 2);
       ctx.shadowColor = coreCol;
       ctx.beginPath();
       ctx.arc(0, 0, coreSize, 0, Math.PI * 2);
       ctx.fill();
+      if (outWidth > 0) {
+        ctx.strokeStyle = outColor;
+        ctx.lineWidth = outWidth;
+        ctx.stroke();
+      }
+      ctx.restore();
 
       ctx.restore();
     }
@@ -1101,6 +1196,110 @@ export default function App() {
       ctx.restore();
     }
 
+    // --- SPECTERR WAVEFORM EMBLEM & SEGMENTED OUTLINE RING (app.specterr.com) ---
+    if (st.params.showSpecterrRing) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      const ringRadius = Math.min(W, H) * 0.22 * (1 + bands.sub * 0.35 + shockMod * 0.25);
+      const waveSamples = 96;
+      const stepAngle = (Math.PI * 2) / waveSamples;
+
+      // 1. Center Backdrop: semi-transparent or fully transparent
+      if (fillAlpha > 0.01) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius * 0.88, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(10, 10, 16, ${0.75 * fillAlpha})`;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Generate waveform path points
+      const wavePoints = [];
+      for (let s = 0; s < waveSamples; s++) {
+        const angle = s * stepAngle + st.rot * 0.5;
+        const waveIdx = Math.floor((s / waveSamples) * (waveData.length || 512));
+        const freqIdx = Math.floor((s / waveSamples) * (freqData.length || 512) * 0.35);
+        const waveSample = ((waveData[waveIdx] || 128) - 128) / 128;
+        const freqSample = (freqData[freqIdx] || 0) / 255;
+        
+        const displacement = (waveSample * 25 * (1 + bands.mid)) + (freqSample * 45 * (1 + bands.low));
+        const r = Math.max(10, ringRadius + displacement);
+        wavePoints.push({
+          x: Math.cos(angle) * r,
+          y: Math.sin(angle) * r
+        });
+      }
+
+      // Apply Specterr outline segments dash pattern
+      if (outSegs > 0) {
+        const segDash = Math.max(4, (ringRadius * Math.PI * 2) / (outSegs * 2.5));
+        const segGap = Math.max(3, 5 + bands.high * 8);
+        ctx.setLineDash([segDash, segGap]);
+      } else {
+        ctx.setLineDash([]);
+      }
+
+      // Layer 1: Contrast Outline Stroke (Specterr Wave Layer 1 Outline)
+      if (outWidth > 0) {
+        ctx.save();
+        ctx.beginPath();
+        for (let i = 0; i <= wavePoints.length; i++) {
+          const pt = wavePoints[i % wavePoints.length];
+          i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = outColor;
+        ctx.lineWidth = 3 + outWidth * 2;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Layer 2: Primary Waveform Color Stroke (Layer Color)
+      ctx.save();
+      ctx.beginPath();
+      for (let i = 0; i <= wavePoints.length; i++) {
+        const pt = wavePoints[i % wavePoints.length];
+        i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.closePath();
+
+      // Transparent fill
+      if (fillAlpha > 0.05) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.08 * fillAlpha})`;
+        ctx.fill();
+      }
+
+      ctx.strokeStyle = c0;
+      ctx.lineWidth = 3 + bloomMod * 2;
+      ctx.shadowBlur = 12 * Math.min(bloomMod, 2);
+      ctx.shadowColor = c0;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+      ctx.restore();
+
+      // Layer 3: Inner Secondary Echo Ring (Wave Layer 2 in Specterr screenshot)
+      if (outWidth > 2) {
+        ctx.save();
+        ctx.beginPath();
+        for (let i = 0; i <= wavePoints.length; i++) {
+          const pt = wavePoints[i % wavePoints.length];
+          const innerR = 0.82;
+          i === 0 ? ctx.moveTo(pt.x * innerR, pt.y * innerR) : ctx.lineTo(pt.x * innerR, pt.y * innerR);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = c1;
+        ctx.lineWidth = Math.max(1, outWidth * 0.7);
+        ctx.globalAlpha = 0.8;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
     // --- POST-PROCESSING: CHROMATIC GLITCH & GRAIN (Safe Overlays) ---
     if (chromaMod > 0.1 && bands.low > 0.35) {
       ctx.save();
@@ -1365,7 +1564,7 @@ export default function App() {
               className={`rack-tab ${activeTab === 'postfx' ? 'active' : ''}`}
               onClick={() => setActiveTab('postfx')}
             >
-              <Icons.Fx /> Post-Processing Shaders
+              <Icons.Fx /> Post-Processing & Specterr FX
             </button>
           </div>
           <span className="rack-info">Ableton Live FX Rack v2.0 · Background Audio Lock</span>
@@ -2056,9 +2255,101 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 4: POST-PROCESSING SHADERS */}
+          {/* TAB 4: POST-PROCESSING & SPECTERR SHADERS */}
           {activeTab === 'postfx' && (
             <div className="rack-params-grid">
+              {/* SPECTERR CONTOUR: OUTLINE SEGMENTS & COLOR */}
+              <div className="param-device-box specterr-box">
+                <div className="specterr-box-header">
+                  <h4>Specterr Contour: Outline Segments</h4>
+                  <span className="specterr-tag">SPECTERR FX</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Outline Width:</label>
+                  <input
+                    type="range" min="0" max="24" step="1" value={params.outlineWidth ?? 6}
+                    onChange={e => setParams({ ...params, outlineWidth: Number(e.target.value) })}
+                    title="Outline stroke thickness around waveform & geometry"
+                  />
+                  <span>{params.outlineWidth ?? 6}px</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Outline Segments:</label>
+                  <input
+                    type="range" min="0" max="32" step="2" value={params.outlineSegments ?? 16}
+                    onChange={e => setParams({ ...params, outlineSegments: Number(e.target.value) })}
+                    title="0 = Continuous / Solid stroke; 4 to 32 = Segmented rhythmic chops"
+                  />
+                  <span>{(params.outlineSegments ?? 16) === 0 ? 'Solid' : `${params.outlineSegments} segs`}</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Outline Color:</label>
+                  <div className="outline-color-picker">
+                    {[
+                      { id: '#000000', label: 'Dark', bg: '#000000', border: '#555' },
+                      { id: '#ffffff', label: 'White', bg: '#ffffff', border: '#fff' },
+                      { id: '#00f0ff', label: 'Cyan', bg: '#00f0ff', border: '#00f0ff' },
+                      { id: '#ff007f', label: 'Pink', bg: '#ff007f', border: '#ff007f' },
+                      { id: '#39ff14', label: 'Lime', bg: '#39ff14', border: '#39ff14' },
+                      { id: 'palette', label: 'Palette', bg: 'linear-gradient(135deg, #00f0ff, #ec4899)', border: '#fff' }
+                    ].map(oc => (
+                      <button
+                        key={oc.id}
+                        type="button"
+                        className={`color-chip-btn ${params.outlineColor === oc.id ? 'active' : ''}`}
+                        style={{ background: oc.bg, borderColor: oc.border }}
+                        onClick={() => setParams({ ...params, outlineColor: oc.id })}
+                        title={oc.label}
+                      />
+                    ))}
+                  </div>
+                  <span className="outline-color-name">
+                    {params.outlineColor === '#000000' ? 'Dark' :
+                     params.outlineColor === '#ffffff' ? 'White' :
+                     params.outlineColor === '#00f0ff' ? 'Cyan' :
+                     params.outlineColor === '#ff007f' ? 'Pink' :
+                     params.outlineColor === '#39ff14' ? 'Lime' : 'Palette'}
+                  </span>
+                </div>
+              </div>
+
+              {/* SPECTERR TRANSPARENCY & WAVE RING */}
+              <div className="param-device-box specterr-box">
+                <div className="specterr-box-header">
+                  <h4>Specterr Transparency & Crest</h4>
+                  <span className="specterr-tag">SPECTERR FX</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Transparent Mode:</label>
+                  <button
+                    type="button"
+                    className={`specterr-toggle-btn ${params.transparentMode ? 'active' : ''}`}
+                    onClick={() => setParams({ ...params, transparentMode: !params.transparentMode })}
+                  >
+                    {params.transparentMode ? 'ON (Transparent)' : 'OFF (Opaque)'}
+                  </button>
+                </div>
+                <div className="param-slider-row">
+                  <label>Fill Transparency:</label>
+                  <input
+                    type="range" min="0" max="100" step="5" value={params.transparency ?? 40}
+                    onChange={e => setParams({ ...params, transparency: Number(e.target.value) })}
+                    title="0% = Solid fills; 100% = Fully hollow outline contours revealing starfield"
+                  />
+                  <span>{params.transparency ?? 40}%</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Waveform Ring:</label>
+                  <button
+                    type="button"
+                    className={`specterr-toggle-btn ${params.showSpecterrRing ? 'active' : ''}`}
+                    onClick={() => setParams({ ...params, showSpecterrRing: !params.showSpecterrRing })}
+                  >
+                    {params.showSpecterrRing ? 'SHOW CREST' : 'HIDE CREST'}
+                  </button>
+                </div>
+              </div>
+
               <div className="param-device-box">
                 <h4>Bloom & Glow Intensity</h4>
                 <div className="param-slider-row">

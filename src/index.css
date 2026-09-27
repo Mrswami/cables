@@ -1027,3 +1027,97 @@ body {
   color: var(--text-active);
   text-align: center;
 }
+
+/* SPECTERR CONTOUR & TRANSPARENCY MODULE (app.specterr.com) */
+.specterr-box {
+  border-color: #3b3b4f;
+  background: linear-gradient(180deg, rgba(20, 20, 30, 0.95), rgba(10, 10, 16, 0.98));
+}
+
+.specterr-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.specterr-box-header h4 {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.specterr-tag {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #ec4899;
+  color: #fff;
+  letter-spacing: 0.8px;
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.4);
+}
+
+.outline-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-grow: 1;
+}
+
+.color-chip-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  padding: 0;
+}
+
+.color-chip-btn:hover {
+  transform: scale(1.18);
+}
+
+.color-chip-btn.active {
+  transform: scale(1.25);
+  border-color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.85);
+}
+
+.outline-color-name {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-active);
+  font-weight: 700;
+  min-width: 45px;
+  text-align: right;
+}
+
+.specterr-toggle-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.specterr-toggle-btn:hover {
+  border-color: var(--border-focus);
+  color: #fff;
+}
+
+.specterr-toggle-btn.active {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: #00f0ff;
+  color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+}
