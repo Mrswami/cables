@@ -7,4 +7,9 @@ export default defineConfig({
   build: {
     outDir: 'desktop',
   },
+  server: {
+    watch: {
+      ignored: ['**/src-tauri/**']
+    }
+  }
 })

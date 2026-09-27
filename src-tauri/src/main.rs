@@ -65,9 +65,10 @@ fn main() {
         let mut scratch: Vec<Complex<f32>> =
             vec![Complex { re: 0.0, im: 0.0 }; fft.get_inplace_scratch_len()];
 
+        let stream_config: cpal::StreamConfig = config.clone().into();
         let stream = match config.sample_format() {
             cpal::SampleFormat::F32 => device.build_input_stream(
-                &config.into(),
+                &stream_config,
                 move |data: &[f32], _: &_| {
                     // Downmix to mono and collect
                     for frame in data.chunks(channels) {
