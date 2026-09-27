@@ -76,7 +76,7 @@ jobs:
     name: 🔍 Deploy Preview (PR)
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'pull_request' && secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER != ''
+    if: github.event_name == 'pull_request'
     permissions:
       pull-requests: write
 
@@ -89,7 +89,19 @@ jobs:
           name: cables-dist-${{ github.sha }}
           path: desktop/
 
+      - name: Check for Firebase Credentials
+        id: check_auth
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER }}
+        run: |
+          if [ -n "$SERVICE_ACCOUNT" ]; then
+            echo "has_auth=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_auth=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Deploy to Firebase Hosting Preview Channel
+        if: steps.check_auth.outputs.has_auth == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -100,13 +112,13 @@ jobs:
           expires: 7d
 
   # ─────────────────────────────────────────
-  # 3b. DEPLOY PRODUCTION (push to main with secret)
+  # 3b. DEPLOY PRODUCTION (push to main)
   # ─────────────────────────────────────────
   deploy-production:
     name: 🚀 Deploy Production
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER != ''
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     steps:
       - uses: actions/checkout@v4
@@ -117,7 +129,19 @@ jobs:
           name: cables-dist-${{ github.sha }}
           path: desktop/
 
+      - name: Check for Firebase Credentials
+        id: check_auth
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER }}
+        run: |
+          if [ -n "$SERVICE_ACCOUNT" ]; then
+            echo "has_auth=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_auth=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Deploy to Firebase Hosting (Live)
+        if: steps.check_auth.outputs.has_auth == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -126,7 +150,8 @@ jobs:
           target: cables
           channelId: live
 
-      - name: Deployment summary
+      - name: Deployment summary (Live)
+        if: steps.check_auth.outputs.has_auth == 'true'
         run: |
           echo "## ✅ Deployed to Production" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -135,16 +160,8 @@ jobs:
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** https://cables.web.app" >> $GITHUB_STEP_SUMMARY
 
-  # ─────────────────────────────────────────
-  # 3c. DEPLOY NOTICE (when secret not yet configured)
-  # ─────────────────────────────────────────
-  deploy-notice:
-    name: ℹ️ Deployment Guide
-    runs-on: ubuntu-latest
-    needs: build
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER == ''
-    steps:
-      - name: Setup Guide
+      - name: Deployment summary (Manual / Guide)
+        if: steps.check_auth.outputs.has_auth == 'false'
         run: |
           echo "## ℹ️ Build Successful — CI/CD Active" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
