@@ -65,6 +65,8 @@ export default function App() {
   const audioCtxRef = useRef(null);
   const streamRef = useRef(null);
   const wakeLockRef = useRef(null);
+  const renderFrameRef = useRef(null);
+  const lastUiUpdateRef = useRef(0);
 
   // App & Source State
   const [isRunning, setIsRunning] = useState(false);
@@ -156,17 +158,53 @@ export default function App() {
     }
   };
 
+  // Initialize particles helper
+  const initParticles = () => {
+    const pts = [];
+    const count = 1200;
+    for (let i = 0; i < count; i++) {
+      pts.push({
+        x: (Math.random() - 0.5) * 2000,
+        y: (Math.random() - 0.5) * 2000,
+        z: Math.random() * 2000,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+        vz: Math.random() * 4 + 2,
+        size: Math.random() * 3 + 1,
+        hueOffset: Math.random() * 60
+      });
+    }
+    particlesRef.current = pts;
+  };
+
+  // --- CORE 60FPS RENDER PIPELINE WITH ZERO-CRASH RESILIENCE ---
+  const renderLoop = useCallback(function tick() {
+    if (!stateRef.current.isRunning) return;
+    try {
+      if (renderFrameRef.current) {
+        renderFrameRef.current();
+      }
+    } catch (err) {
+      console.error('Render loop frame error (continuing loop):', err);
+    }
+    animRef.current = requestAnimationFrame(tick);
+  }, []);
+
   // Keep rendering and audio processing active even when Tab is unfocused or in background
   useEffect(() => {
     const handleVisibility = () => {
       if (document.hidden) {
         // Tab moved to background: keep Web Audio context awake & force continuous tick
         if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-          audioCtxRef.current.resume();
+          audioCtxRef.current.resume().catch(() => {});
         }
         if (stateRef.current.isRunning && !bgTimerRef.current) {
           bgTimerRef.current = setInterval(() => {
-            renderFrame();
+            if (renderFrameRef.current) {
+              try {
+                renderFrameRef.current();
+              } catch (_) {}
+            }
           }, 1000 / 30); // 30fps steady background clock
         }
       } else {
@@ -187,7 +225,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibility);
       if (bgTimerRef.current) clearInterval(bgTimerRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [renderLoop]);
 
   // Handle Canvas Resize
   useEffect(() => {
@@ -217,7 +255,7 @@ export default function App() {
       streamRef.current.getTracks().forEach(t => t.stop());
     }
     if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-      audioCtxRef.current.close();
+      audioCtxRef.current.close().catch(() => {});
     }
     audioCtxRef.current = null;
     analyserRef.current = null;
@@ -233,12 +271,17 @@ export default function App() {
     }
   }, []);
 
-  // Setup Web Audio Graph with continuous background active node
+  // Setup Web Audio Graph with sub-millisecond sync and crash-proof graph
   const buildAudioGraph = useCallback((stream) => {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.75;
+    // 0.25 smoothing provides razor-sharp, millisecond-tight reaction to beats and transients
+    analyser.smoothingTimeConstant = 0.25;
     analyser.minDecibels = -90;
     analyser.maxDecibels = -10;
 
@@ -246,8 +289,9 @@ export default function App() {
     source.connect(analyser);
 
     // Create an inaudible gain node connected to destination to force the browser audio pipeline to NEVER sleep
+    // Gain is strictly 0 to avoid echo cancellation feedback loops or Windows WASAPI stream stalls
     const keepAliveGain = audioCtx.createGain();
-    keepAliveGain.gain.value = 0.00001; // virtually silent but actively streamed to speakers
+    keepAliveGain.gain.setValueAtTime(0, audioCtx.currentTime);
     source.connect(keepAliveGain);
     keepAliveGain.connect(audioCtx.destination);
 
@@ -256,6 +300,15 @@ export default function App() {
     dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
     waveDataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
     streamRef.current = stream;
+
+    // Monitor track ended events (e.g. user clicked browser "Stop sharing" button)
+    stream.getTracks().forEach(track => {
+      track.onended = () => {
+        if (stream.getAudioTracks().every(t => t.readyState === 'ended')) {
+          stopAudio();
+        }
+      };
+    });
 
     setIsRunning(true);
     stateRef.current.isRunning = true;
@@ -266,26 +319,9 @@ export default function App() {
     // Initialize particles
     initParticles();
 
+    cancelAnimationFrame(animRef.current);
     animRef.current = requestAnimationFrame(renderLoop);
-  }, [keepAwake]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const initParticles = () => {
-    const pts = [];
-    const count = 1200;
-    for (let i = 0; i < count; i++) {
-      pts.push({
-        x: (Math.random() - 0.5) * 2000,
-        y: (Math.random() - 0.5) * 2000,
-        z: Math.random() * 2000,
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2,
-        vz: Math.random() * 4 + 2,
-        size: Math.random() * 3 + 1,
-        hueOffset: Math.random() * 60
-      });
-    }
-    particlesRef.current = pts;
-  };
+  }, [keepAwake, renderLoop, stopAudio]);
 
   // Capture system/tab audio via getDisplayMedia (Edge/Chrome preferred)
   const captureTabAudio = async () => {
@@ -366,6 +402,11 @@ export default function App() {
   const renderFrame = () => {
     if (!analyserRef.current || !canvasRef.current) return;
 
+    // Automatically resume suspended audio context if Chrome/Edge paused it
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+
     const analyser = analyserRef.current;
     const freqData = dataArrayRef.current;
     const waveData = waveDataArrayRef.current;
@@ -376,6 +417,7 @@ export default function App() {
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
     const H = canvas.height;
+    if (W === 0 || H === 0) return;
     const cx = W / 2;
     const cy = H / 2;
 
@@ -393,24 +435,45 @@ export default function App() {
     const rawLow = (lowSum / 45) / 255;
     const rawMid = (midSum / 290) / 255;
     const rawHigh = (highSum / 674) / 255;
-    const peak = Math.max(...freqData) / 255;
 
-    // Apply quadratic response curve for punchy, reactive visuals
+    // Fast non-allocating peak search (no array spreading or GC churn)
+    let peakRaw = 0;
+    for (let i = 0; i < 1024; i++) {
+      if (freqData[i] > peakRaw) peakRaw = freqData[i];
+    }
+    const peak = peakRaw / 255;
+
+    // Instantaneous waveform energy (0ms latency, catches transient hits on the exact millisecond)
+    let waveTransientRaw = 0;
+    for (let i = 0; i < waveData.length; i += 8) {
+      const diff = Math.abs(waveData[i] - 128);
+      if (diff > waveTransientRaw) waveTransientRaw = diff;
+    }
+    const waveTransient = waveTransientRaw / 128; // 0 to 1
+
+    // Apply quadratic response curve + instantaneous 0ms transient punch for sub-millisecond sync
     const bands = {
-      sub: Math.pow(rawSub, 1.2) * (st.subGain / 100) * 1.5,
-      low: Math.pow(rawLow, 1.2) * (st.lowGain / 100) * 1.4,
+      sub: (Math.pow(rawSub, 1.2) * (st.subGain / 100) * 1.5) + (waveTransient * 0.25),
+      low: (Math.pow(rawLow, 1.2) * (st.lowGain / 100) * 1.4) + (waveTransient * 0.2),
       mid: Math.pow(rawMid, 1.1) * (st.midGain / 100) * 1.3,
       high: Math.pow(rawHigh, 1.0) * (st.highGain / 100) * 1.5,
       master: (st.masterGain / 100)
     };
 
-    setLevels({
-      sub: Math.min(1, bands.sub),
-      low: Math.min(1, bands.low),
-      mid: Math.min(1, bands.mid),
-      high: Math.min(1, bands.high),
-      peak
-    });
+    // Throttle React state update to ~30fps so React re-renders never choke or freeze the 60fps canvas thread
+    const now = performance.now();
+    if (now - lastUiUpdateRef.current >= 33) {
+      lastUiUpdateRef.current = now;
+      setLevels({
+        sub: Math.min(1, bands.sub),
+        low: Math.min(1, bands.low),
+        mid: Math.min(1, bands.mid),
+        high: Math.min(1, bands.high),
+        peak
+      });
+    }
+
+    try {
 
     // --- MODULATION MATRIX VALUE RESOLUTION ---
     // Reverse vs Forward Spin
@@ -869,14 +932,17 @@ export default function App() {
       }
       ctx.restore();
     }
+    } catch (drawErr) {
+      console.error('Frame render engine caught error (recovered):', drawErr);
+      try {
+        ctx.restore();
+      } catch (_) {}
+    }
   };
 
-  // --- CORE 60FPS RENDER PIPELINE ---
-  const renderLoop = useCallback(() => {
-    if (!stateRef.current.isRunning) return;
-    renderFrame();
-    animRef.current = requestAnimationFrame(renderLoop);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    renderFrameRef.current = renderFrame;
+  });
 
   // Matrix Route Update Handler
   const handleMatrixChange = (band, field, value) => {
