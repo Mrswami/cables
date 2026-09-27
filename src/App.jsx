@@ -62,6 +62,7 @@ export default function App() {
   const analyserRef = useRef(null);
   const dataArrayRef = useRef(null);
   const waveDataArrayRef = useRef(null);
+  const wsRef = useRef(null);
   const audioCtxRef = useRef(null);
   const streamRef = useRef(null);
   const wakeLockRef = useRef(null);
@@ -75,7 +76,7 @@ export default function App() {
   const [activeEngine, setActiveEngine] = useState('sacred');
   const [activePalette, setActivePalette] = useState('cyberpunk');
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'engine' | 'palette' | 'postfx'
+  const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'engine' | 'palette' | 'postfx' | 'layout'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [keepAwake, setKeepAwake] = useState(true);
 
@@ -114,6 +115,11 @@ export default function App() {
     repetition: 6,
     wireframeDetail: 32,
     particleCount: 800,
+
+    // Layout & Positioning (Echowave inspired)
+    xOffset: 0,
+    yOffset: 0,
+    zoom: 1.0,
 
     // Specterr Contour & Transparency Parameters (app.specterr.com inspired)
     outlineWidth: 6,
@@ -329,6 +335,10 @@ export default function App() {
     }
     releaseWakeLock();
 
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
     }
@@ -401,47 +411,43 @@ export default function App() {
     animRef.current = requestAnimationFrame(renderLoop);
   }, [keepAwake, renderLoop, stopAudio]);
 
-  // Capture system/tab audio via getDisplayMedia (Edge/Chrome preferred)
+  // Connect to Tauri Rust Backend (Zero-Latency Native Capture)
   const captureTabAudio = async () => {
     setError('');
+    stopAudio();
     try {
-      stopAudio();
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 48000
-        }
-      });
-      // Do NOT kill the video track immediately or some browsers pause the whole stream on Alt+Tab.
-      // We keep the track alive in memory so background streaming never sleeps.
-      buildAudioGraph(stream);
-      setSourceType('tab');
+      const ws = new WebSocket('ws://127.0.0.1:3030');
+      ws.binaryType = 'arraybuffer';
+      ws.onmessage = (e) => {
+        const buffer = new Uint8Array(e.data);
+        const freqLen = 1024;
+        dataArrayRef.current = buffer.slice(0, freqLen);
+        waveDataArrayRef.current = buffer.slice(freqLen);
+      };
+      ws.onopen = () => {
+        setIsRunning(true);
+        stateRef.current.isRunning = true;
+        setSourceType('tauri');
+        if (keepAwake) requestWakeLock();
+        initParticles();
+        cancelAnimationFrame(animRef.current);
+        animRef.current = requestAnimationFrame(renderLoop);
+      };
+      ws.onclose = () => {
+        stopAudio();
+      };
+      ws.onerror = () => {
+        setError('Could not connect to Tauri backend on ws://127.0.0.1:3030. Is the native audio server running?');
+        stopAudio();
+      };
+      wsRef.current = ws;
     } catch (err) {
-      setError('Audio capture cancelled or blocked. In the Edge/Chrome share picker, select a tab or window and enable the "Share with system audio" toggle at the bottom before clicking Share.');
+      setError('Failed to initiate Tauri WebSocket connection.');
     }
   };
 
-  // Capture Microphone Audio (or Stereo Mix for Firefox)
-  const captureMic = async () => {
-    setError('');
-    try {
-      stopAudio();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
-        }
-      });
-      buildAudioGraph(stream);
-      setSourceType('mic');
-    } catch (err) {
-      setError('Microphone access was denied. Please allow microphone permissions.');
-    }
-  };
+  // Both buttons route to the native Tauri backend now
+  const captureMic = captureTabAudio;
 
   // Matrix Value Evaluator with Noise / Effect Gate Threshold
   const getModValue = (targetId, currentBandValues) => {
@@ -478,19 +484,11 @@ export default function App() {
 
   // Single Frame Render Engine
   const renderFrame = () => {
-    if (!analyserRef.current || !canvasRef.current) return;
+    if (!canvasRef.current || !dataArrayRef.current || !waveDataArrayRef.current) return;
     lastRenderTimestampRef.current = performance.now();
 
-    // Automatically resume suspended audio context if Chrome/Edge paused it
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-
-    const analyser = analyserRef.current;
     const freqData = dataArrayRef.current;
     const waveData = waveDataArrayRef.current;
-    analyser.getByteFrequencyData(freqData);
-    analyser.getByteTimeDomainData(waveData);
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -685,6 +683,15 @@ export default function App() {
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
+
+    // --- GLOBAL LAYOUT TRANSFORM (ECHOWAVE INSPIRED) ---
+    ctx.save();
+    const xOff = (st.params.xOffset ?? 0) / 100 * W;
+    const yOff = (st.params.yOffset ?? 0) / 100 * H;
+    const zoomVal = st.params.zoom ?? 1.0;
+    ctx.translate(cx + xOff, cy + yOff);
+    ctx.scale(zoomVal, zoomVal);
+    ctx.translate(-cx, -cy);
 
     // --- ENGINE 1: SACRED FRACTALS & MANDALA SYMMETRY ---
     if (st.activeEngine === 'sacred') {
@@ -1300,6 +1307,9 @@ export default function App() {
       ctx.restore();
     }
 
+    // --- END GLOBAL LAYOUT TRANSFORM ---
+    ctx.restore();
+
     // --- POST-PROCESSING: CHROMATIC GLITCH & GRAIN (Safe Overlays) ---
     if (chromaMod > 0.1 && bands.low > 0.35) {
       ctx.save();
@@ -1403,15 +1413,15 @@ export default function App() {
             onClick={captureTabAudio}
             title="Best in Edge/Chrome: pick a tab/window and toggle 'Share with system audio' at the bottom of the share dialog. Firefox works too but requires a separate audio permission step."
           >
-            <Icons.Monitor /> Capture Tab Audio
+            <Icons.Monitor /> Connect Native Audio
           </button>
           <button
             id="btn-capture-mic"
-            className={`transport-btn capture-btn ${sourceType === 'mic' ? 'active-mic' : ''}`}
+            className={`transport-btn capture-btn ${sourceType === 'tauri' ? 'active-mic' : ''}`}
             onClick={captureMic}
-            title="Capture Microphone (or Stereo Mix for Firefox)"
+            title="Connect Native Tauri Audio Backend"
           >
-            <Icons.Mic /> Microphone / Stereo Mix
+            <Icons.Mic /> Start Server Link
           </button>
           <button
             id="btn-stop"
@@ -1455,7 +1465,7 @@ export default function App() {
           {isRunning ? (
             <span className="status-badge live">
               <span className="pulse-dot"></span>
-              LIVE · {sourceType === 'tab' ? 'Browser Audio' : 'Mic / Stereo Mix'}
+              LIVE · Tauri Native (WASAPI)
             </span>
           ) : (
             <span className="status-badge idle">● STANDBY</span>
@@ -1492,12 +1502,8 @@ export default function App() {
 
               <div className="idle-actions">
                 <button className="idle-action-btn primary" onClick={captureTabAudio}>
-                  <Icons.Monitor /> Capture Tab Audio
-                  <span className="idle-action-sub">Edge / Chrome &middot; enable &quot;Share with system audio&quot;</span>
-                </button>
-                <button className="idle-action-btn" onClick={captureMic}>
-                  <Icons.Mic /> Microphone / Stereo Mix
-                  <span className="idle-action-sub">Firefox &middot; or physical mic input</span>
+                  <Icons.Monitor /> Connect Native Audio
+                  <span className="idle-action-sub">Tauri Desktop &middot; Zero-Latency WASAPI</span>
                 </button>
               </div>
               {error && <div className="error-callout">{error}</div>}
@@ -1565,6 +1571,12 @@ export default function App() {
               onClick={() => setActiveTab('postfx')}
             >
               <Icons.Fx /> Post-Processing & Specterr FX
+            </button>
+            <button
+              className={`rack-tab ${activeTab === 'layout' ? 'active' : ''}`}
+              onClick={() => setActiveTab('layout')}
+            >
+              <Icons.Expand /> Layout & Workspace
             </button>
           </div>
           <span className="rack-info">Ableton Live FX Rack v2.0 · Background Audio Lock</span>
@@ -2391,6 +2403,48 @@ export default function App() {
                     onChange={e => setParams({ ...params, strobe: Number(e.target.value) })}
                   />
                   <span>{params.strobe}%</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: LAYOUT & WORKSPACE (ECHOWAVE INSPIRED) */}
+          {activeTab === 'layout' && (
+            <div className="rack-params-grid">
+              <div className="param-device-box">
+                <div className="specterr-box-header">
+                  <h4>Workspace Transformation</h4>
+                  <span className="specterr-tag" style={{ background: '#3b82f6', color: '#fff' }}>ECHOWAVE</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>X Offset (Pan):</label>
+                  <input
+                    type="range" min="-100" max="100" step="1" value={params.xOffset ?? 0}
+                    onChange={e => setParams({ ...params, xOffset: Number(e.target.value) })}
+                    title="Pan visualizer horizontally across the screen"
+                  />
+                  <span>{params.xOffset ?? 0}%</span>
+                  <button style={{ marginLeft: '10px', fontSize: '10px', padding: '2px 6px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setParams({ ...params, xOffset: 0 })}>Reset</button>
+                </div>
+                <div className="param-slider-row">
+                  <label>Y Offset (Pan):</label>
+                  <input
+                    type="range" min="-100" max="100" step="1" value={params.yOffset ?? 0}
+                    onChange={e => setParams({ ...params, yOffset: Number(e.target.value) })}
+                    title="Pan visualizer vertically across the screen"
+                  />
+                  <span>{params.yOffset ?? 0}%</span>
+                  <button style={{ marginLeft: '10px', fontSize: '10px', padding: '2px 6px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setParams({ ...params, yOffset: 0 })}>Reset</button>
+                </div>
+                <div className="param-slider-row">
+                  <label>Zoom (Scale):</label>
+                  <input
+                    type="range" min="0.1" max="5.0" step="0.1" value={params.zoom ?? 1.0}
+                    onChange={e => setParams({ ...params, zoom: Number(e.target.value) })}
+                    title="Scale the entire visualizer up or down"
+                  />
+                  <span>{(params.zoom ?? 1.0).toFixed(1)}x</span>
+                  <button style={{ marginLeft: '10px', fontSize: '10px', padding: '2px 6px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setParams({ ...params, zoom: 1.0 })}>Reset</button>
                 </div>
               </div>
             </div>
