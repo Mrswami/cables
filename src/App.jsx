@@ -41,17 +41,18 @@ const PALETTES = [
   { id: 'vaporwave', name: 'Synthwave Sunset', colors: ['#ff71ce', '#01cdfe', '#05ffa1', '#b967ff'] }
 ];
 
-// --- MODULATION MATRIX TARGETS ---
+// --- MODULATION MATRIX TARGETS (DISTINCT VISUAL PATTERNS) ---
 const MOD_TARGETS = [
-  { id: 'geometry', name: 'Geometry Density / Complexity' },
-  { id: 'repetition', name: 'Symmetry / Repeat Count' },
-  { id: 'warp', name: '3D Camera Warp / Tunnel Speed' },
-  { id: 'particles', name: 'Particle Emission & Velocity' },
-  { id: 'chroma', name: 'Chromatic Aberration' },
-  { id: 'bloom', name: 'Glow Bloom & Strobe' },
-  { id: 'grain', name: 'Film Grain / Scanlines' },
-  { id: 'rotation', name: 'Rotation / Spin Velocity' },
-  { id: 'hue', name: 'Color Shift & Hue Cycling' }
+  { id: 'reverse_spin', name: 'Spin Direction: Reverse (Counter-Clockwise)' },
+  { id: 'vortex_spin', name: 'Spin Direction: Forward (Clockwise Accelerator)' },
+  { id: 'shockwave', name: 'Radial Shockwave & Pulse Explosion' },
+  { id: 'wave_current', name: 'Sinusoidal Wave & Fluid Undulation' },
+  { id: 'warp_tunnel', name: '3D Warp Thrust & Tunnel Speed' },
+  { id: 'kaleido_facets', name: 'Kaleidoscope Facets & Mirror Symmetry' },
+  { id: 'laser_beams', name: 'Starburst Laser Streaks & Filament Lightning' },
+  { id: 'particle_mass', name: 'Particle Mass & Stardust Sparkle' },
+  { id: 'color_cycle', name: 'Chromatic Hue Cycle & Color Jump' },
+  { id: 'film_strobe', name: 'Film Strobe & Glow Bloom' }
 ];
 
 export default function App() {
@@ -389,34 +390,49 @@ export default function App() {
       peak
     });
 
-    // Matrix modulated outputs with amplified response factors
-    const geomMod = getModValue('geometry', bands) * 1.8;
-    const repMod = getModValue('repetition', bands) * 1.6;
-    const warpMod = getModValue('warp', bands) * 1.7;
-    const partMod = getModValue('particles', bands) * 1.8;
-    const chromaMod = getModValue('chroma', bands) * 1.5 + (st.params.chroma / 100);
-    const bloomMod = getModValue('bloom', bands) * 1.5 + (st.params.bloom / 100);
-    const grainMod = getModValue('grain', bands) + (st.params.grain / 100);
-    const rotMod = getModValue('rotation', bands) * 2.0;
-    const hueMod = getModValue('hue', bands) * 2.0;
+    // --- MODULATION MATRIX VALUE RESOLUTION ---
+    // Reverse vs Forward Spin
+    const revSpinMod = getModValue('reverse_spin', bands);
+    const fwdSpinMod = getModValue('vortex_spin', bands);
+    const spinDelta = (fwdSpinMod - revSpinMod) * 0.15; // Allows counter-clockwise spin!
 
-    st.rot += 0.006 + (rotMod * 0.08);
-    st.tunnelZ += (0.05 + warpMod * 0.35) * st.params.speed;
+    // Shockwave & Pulse Explosion
+    const shockMod = getModValue('shockwave', bands);
+    
+    // Sinusoidal Wave & Fluid Undulation
+    const waveMod = getModValue('wave_current', bands);
 
-    // Palette Colors Lookup & Interpolator
+    // 3D Warp Thrust & Tunnel Speed
+    const warpMod = getModValue('warp_tunnel', bands);
+
+    // Kaleidoscope Facets & Mirror Symmetry
+    const kaleidoMod = getModValue('kaleido_facets', bands);
+
+    // Starburst Laser Streaks & Filament Lightning
+    const laserMod = getModValue('laser_beams', bands);
+
+    // Particle Mass & Sparkle
+    const massMod = getModValue('particle_mass', bands);
+
+    // Chromatic Hue Cycle & Jump
+    const hueJumpMod = getModValue('color_cycle', bands);
+
+    // Film Strobe & Glow Bloom
+    const strobeBloomMod = getModValue('film_strobe', bands);
+
+    const bloomMod = strobeBloomMod * 1.5 + (st.params.bloom / 100);
+    const grainMod = (st.params.grain / 100);
+
+    // Angular accumulation with bidirectional spin
+    st.rot += 0.005 + spinDelta;
+    st.tunnelZ += (0.05 + warpMod * 0.4) * st.params.speed;
+
+    // Palette Colors Lookup & Interpolator (with Hue Jump Modulation)
     const currentPal = PALETTES.find(p => p.id === st.activePalette) || PALETTES[0];
     const palColors = currentPal.colors;
-    const c0 = palColors[0];
-    const c1 = palColors[1];
-    const c2 = palColors[2] || palColors[0];
-    const c3 = palColors[3] || palColors[1];
-
-    // Helper to get palette color by float index (0..1)
-    const getPalColor = (t, alpha = 1) => {
-      const idx = Math.floor(Math.abs(t) * (palColors.length - 1)) % palColors.length;
-      const nextIdx = (idx + 1) % palColors.length;
-      return palColors[idx];
-    };
+    const colorOffset = Math.floor(hueJumpMod * palColors.length + st.time * 2);
+    const c0 = palColors[(0 + colorOffset) % palColors.length];
+    const c1 = palColors[(1 + colorOffset) % palColors.length];
 
     // Background Decay & Trail Rendering (Never let canvas blow out to pure white)
     ctx.save();
@@ -436,13 +452,13 @@ export default function App() {
       ctx.translate(cx, cy);
       ctx.rotate(st.rot);
 
-      const petals = Math.max(3, Math.round(st.params.repetition + repMod * 10));
-      const rings = Math.max(2, Math.round(st.params.density + geomMod * 12));
-      const baseRadius = Math.min(W, H) * 0.28 * (1 + bands.sub * 0.75);
+      const petals = Math.max(3, Math.round(st.params.repetition + kaleidoMod * 12 + bands.mid * 4));
+      const rings = Math.max(2, Math.round(st.params.density + shockMod * 8 + bands.low * 6));
+      const baseRadius = Math.min(W, H) * 0.28 * (1 + bands.sub * 0.75 + shockMod * 0.5);
 
       for (let r = 1; r <= rings; r++) {
         const ringRad = (baseRadius / rings) * r * (1 + bands.low * 0.6);
-        const col = palColors[(r - 1) % palColors.length];
+        const col = palColors[(r - 1 + colorOffset) % palColors.length];
 
         ctx.strokeStyle = col;
         ctx.lineWidth = (1.5 + bloomMod * 2.5) * (1 + bands.low * 0.5);
@@ -451,20 +467,21 @@ export default function App() {
 
         for (let p = 0; p < petals; p++) {
           const angle = (p / petals) * Math.PI * 2;
-          const px = Math.cos(angle) * ringRad;
-          const py = Math.sin(angle) * ringRad;
-          const petalRadius = (ringRad * 0.5) * (1 + bands.mid * 1.5);
+          const waveRipple = Math.sin(angle * 4 + st.time * 6) * (waveMod * 25);
+          const px = Math.cos(angle) * (ringRad + waveRipple);
+          const py = Math.sin(angle) * (ringRad + waveRipple);
+          const petalRadius = (ringRad * 0.5) * (1 + bands.mid * 1.5 + massMod * 0.8);
 
           ctx.beginPath();
           ctx.arc(px, py, Math.max(1, petalRadius), 0, Math.PI * 2);
           ctx.stroke();
 
-          // Concentric geometric star polygons
-          if (r % 2 === 0 && bands.high > 0.12) {
-            const innerCol = palColors[(r + 1) % palColors.length];
+          // Laser Starburst filaments
+          if (laserMod > 0.1 || (r % 2 === 0 && bands.high > 0.12)) {
+            const innerCol = palColors[(r + 1 + colorOffset) % palColors.length];
             ctx.fillStyle = innerCol;
             ctx.beginPath();
-            ctx.arc(px, py, Math.max(1, petalRadius * (0.3 + bands.high * 0.4)), 0, Math.PI * 2);
+            ctx.arc(px, py, Math.max(1, petalRadius * (0.3 + (bands.high + laserMod) * 0.4)), 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -475,31 +492,30 @@ export default function App() {
     // --- ENGINE 2: 3D HYPERSPACE WARP TUNNEL (MULTI-BAND REACTIVE) ---
     else if (st.activeEngine === 'tunnel') {
       ctx.save();
-      // Sub-bass camera tremor & warp center
-      const bassShakeX = (Math.random() - 0.5) * (bands.sub * 18);
-      const bassShakeY = (Math.random() - 0.5) * (bands.sub * 18);
+      const bassShakeX = (Math.random() - 0.5) * ((bands.sub + shockMod) * 20);
+      const bassShakeY = (Math.random() - 0.5) * ((bands.sub + shockMod) * 20);
       ctx.translate(cx + bassShakeX, cy + bassShakeY);
       ctx.rotate(st.rot * 0.5 + (bands.mid * 0.2));
 
       const tunnelRings = 28;
-      const sides = Math.max(3, Math.round(st.params.repetition + repMod * 4));
+      const sides = Math.max(3, Math.round(st.params.repetition + kaleidoMod * 8));
 
-      // LAYER 1: HIGHS (High-frequency Hyperspace Starfield Streaks & Laser Beams)
-      if (bands.high > 0.08) {
-        const starCount = Math.floor(20 + bands.high * 50);
+      // LAYER 1: HIGHS & LASER BEAMS
+      if (bands.high > 0.08 || laserMod > 0.1) {
+        const starCount = Math.floor(20 + (bands.high + laserMod) * 60);
         ctx.save();
         for (let s = 0; s < starCount; s++) {
-          const angle = (s / starCount) * Math.PI * 2 + (st.time * 2);
+          const angle = (s / starCount) * Math.PI * 2 + (st.time * (2 + spinDelta * 10));
           const rInner = (Math.min(W, H) * 0.05) + Math.random() * 20;
-          const rOuter = (Math.min(W, H) * 0.6) * (1 + bands.high * 0.5);
+          const rOuter = (Math.min(W, H) * 0.6) * (1 + (bands.high + laserMod) * 0.6);
           const x1 = Math.cos(angle) * rInner;
           const y1 = Math.sin(angle) * rInner;
           const x2 = Math.cos(angle) * rOuter;
           const y2 = Math.sin(angle) * rOuter;
-          const laserCol = palColors[s % palColors.length];
+          const laserCol = palColors[(s + colorOffset) % palColors.length];
 
           ctx.strokeStyle = laserCol;
-          ctx.lineWidth = 1 + bands.high * 2.5;
+          ctx.lineWidth = 1 + (bands.high + laserMod) * 2.5;
           ctx.shadowBlur = 10 * bloomMod;
           ctx.shadowColor = laserCol;
           ctx.beginPath();
@@ -510,24 +526,22 @@ export default function App() {
         ctx.restore();
       }
 
-      // LAYER 2: LOW & SUB (Main Pulsing 3D Polygonal Portal Rings)
+      // LAYER 2: LOW & SUB PORTAL RINGS
       for (let i = tunnelRings; i >= 1; i--) {
         const depth = ((i * 35 + st.tunnelZ * 120) % 1000) / 1000;
-        // Sub-bass expands field of view, Low-bass punches ring diameter
-        const bassExpansion = (1 + bands.sub * 0.8 + bands.low * 0.4);
+        const bassExpansion = (1 + bands.sub * 0.8 + bands.low * 0.4 + shockMod * 0.7);
         const scale = Math.pow(depth, 3.2) * (Math.min(W, H) * 0.9) * bassExpansion;
         const alpha = Math.sin(depth * Math.PI) * (0.4 + bloomMod * 0.5);
-        const col = palColors[i % palColors.length];
+        const col = palColors[(i + colorOffset) % palColors.length];
 
         ctx.strokeStyle = col;
-        ctx.lineWidth = (1 - depth) * (3 + bands.low * 4) + bloomMod * 2;
+        ctx.lineWidth = (1 - depth) * (3 + bands.low * 4 + massMod * 3) + bloomMod * 2;
         ctx.shadowBlur = 14 * Math.min(bloomMod, 2) * (1 - depth);
         ctx.shadowColor = col;
 
         ctx.beginPath();
         for (let s = 0; s <= sides; s++) {
-          // Mid frequencies twist ring vertices and induce wave ripples
-          const midRipple = Math.sin(s * 2 + st.time * 6) * (bands.mid * 25 * depth);
+          const midRipple = Math.sin(s * 2 + st.time * 6) * ((bands.mid + waveMod) * 35 * depth);
           const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2 + bands.mid * 1.5);
           const x = Math.cos(a) * (scale + midRipple);
           const y = Math.sin(a) * (scale + midRipple);
@@ -536,42 +550,21 @@ export default function App() {
         ctx.closePath();
         ctx.stroke();
 
-        // LAYER 3: MIDS (Harmonic Inner Resonator Rings & Cross-Struts)
-        if (i % 3 === 0 && bands.mid > 0.12) {
-          const midCol = palColors[(i + 1) % palColors.length];
-          const innerScale = scale * 0.55 * (1 + Math.sin(st.time * 8 + depth * 5) * bands.mid * 0.3);
+        // Inner Resonator Rings
+        if (i % 3 === 0 && (bands.mid > 0.12 || waveMod > 0.1)) {
+          const midCol = palColors[(i + 1 + colorOffset) % palColors.length];
+          const innerScale = scale * 0.55 * (1 + Math.sin(st.time * 8 + depth * 5) * (bands.mid + waveMod) * 0.3);
           ctx.strokeStyle = midCol;
-          ctx.lineWidth = 1.5 + bands.mid * 2;
+          ctx.lineWidth = 1.5 + (bands.mid + waveMod) * 2;
           ctx.beginPath();
           ctx.arc(0, 0, Math.max(1, innerScale), 0, Math.PI * 2);
           ctx.stroke();
-
-          // Longitudinal tunnel rail struts
-          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.25})`;
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(Math.cos(st.rot + depth) * scale, Math.sin(st.rot + depth) * scale);
-          ctx.stroke();
-        }
-
-        // LAYER 4: HIGHS (Crystalline Corner Nodes on Outer Perimeter)
-        if (bands.high > 0.25 && depth > 0.4) {
-          const sparkCol = palColors[(i + 3) % palColors.length];
-          ctx.fillStyle = sparkCol;
-          for (let s = 0; s < sides; s++) {
-            const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2);
-            const nx = Math.cos(a) * scale;
-            const ny = Math.sin(a) * scale;
-            ctx.beginPath();
-            ctx.arc(nx, ny, 2 + bands.high * 4, 0, Math.PI * 2);
-            ctx.fill();
-          }
         }
       }
 
-      // Center Singularity (Sub-bass core pulse)
-      const coreSize = (8 + bands.sub * 35 + bands.low * 15) * (1 + bloomMod * 0.5);
-      const coreCol = palColors[0];
+      // Center Singularity
+      const coreSize = (8 + (bands.sub + shockMod) * 40 + bands.low * 15) * (1 + bloomMod * 0.5);
+      const coreCol = palColors[colorOffset % palColors.length];
       ctx.fillStyle = coreCol;
       ctx.shadowBlur = 25 * Math.min(bloomMod, 2);
       ctx.shadowColor = coreCol;
@@ -587,45 +580,46 @@ export default function App() {
       ctx.save();
       const pts = particlesRef.current;
       
-      // SUB BASS: Massive forward warp velocity + central gravity burst
-      const forwardBoost = (1 + bands.sub * 4.5 + warpMod * 2.0) * st.params.speed;
-      const subShockwave = bands.sub > 0.4;
+      // Dynamic Forward Warp & Shockwave
+      const forwardBoost = (1 + bands.sub * 4.5 + warpMod * 4.0) * st.params.speed;
+      const subShockwave = bands.sub > 0.4 || shockMod > 0.25;
       
-      // LOW BASS: Radial expansion impulse & mass scaling
-      const lowPulse = 1 + bands.low * 2.2;
+      // Particle Mass & Scaling
+      const lowPulse = 1 + bands.low * 2.2 + massMod * 2.0;
       
-      // MIDS: Vortex twist velocity & harmonic wave current
-      const vortexSpeed = (0.015 + bands.mid * 0.08 + rotMod * 0.05);
-      const waveFreq = st.time * 4 + bands.mid * 6;
+      // Vortex angular speed with DIRECTIONAL REVERSE / FORWARD control!
+      // When reverse_spin is routed, particles vigorously whirl COUNTER-CLOCKWISE on hi-hat/frequency hits!
+      const vortexSpeed = (0.015 + spinDelta * 1.5 + bands.mid * 0.08);
+      const waveFreq = st.time * 4 + (bands.mid + waveMod) * 8;
       
-      // HIGHS: Constellation filament density & sparkling stardust
-      const highActive = bands.high > 0.15;
-      const activeCount = Math.min(pts.length, Math.round(st.params.particleCount + partMod * 800 + bands.high * 400));
+      // Highs & Laser filaments
+      const highActive = bands.high > 0.15 || laserMod > 0.15;
+      const activeCount = Math.min(pts.length, Math.round(st.params.particleCount + massMod * 600 + (bands.high + laserMod) * 500));
 
-      // 1. SUB SHOCKWAVE RING (Rendered during heavy sub-bass hits)
+      // 1. RADIAL SHOCKWAVE EXPLOSION
       if (subShockwave) {
         ctx.save();
-        const shockRadius = ((st.time * 800) % Math.max(W, H)) * (bands.sub * 0.9);
-        ctx.strokeStyle = palColors[0];
-        ctx.lineWidth = 2 + bands.sub * 6;
+        const shockRadius = ((st.time * 800) % Math.max(W, H)) * ((bands.sub + shockMod) * 0.95);
+        ctx.strokeStyle = palColors[colorOffset % palColors.length];
+        ctx.lineWidth = 2 + (bands.sub + shockMod) * 7;
         ctx.shadowBlur = 20 * bloomMod;
-        ctx.shadowColor = palColors[0];
+        ctx.shadowColor = palColors[colorOffset % palColors.length];
         ctx.beginPath();
         ctx.arc(cx, cy, shockRadius, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
 
-      // 2. LOW/KICK ORBITAL ENERGY RINGS (Concentric acoustic field lines)
-      if (bands.low > 0.25) {
+      // 2. CONCENTRIC ACOUSTIC PULSE RINGS
+      if (bands.low > 0.25 || shockMod > 0.1) {
         ctx.save();
         const numRings = 3;
         for (let r = 1; r <= numRings; r++) {
           const rRadius = (Math.min(W, H) * 0.18 * r) * lowPulse;
-          const rCol = palColors[r % palColors.length];
+          const rCol = palColors[(r + colorOffset) % palColors.length];
           ctx.strokeStyle = rCol;
-          ctx.lineWidth = 1 + bands.low * 2;
-          ctx.globalAlpha = Math.min(0.6, bands.low * 0.5);
+          ctx.lineWidth = 1 + (bands.low + shockMod) * 2.5;
+          ctx.globalAlpha = Math.min(0.6, (bands.low + shockMod) * 0.5);
           ctx.beginPath();
           ctx.arc(cx, cy, rRadius, 0, Math.PI * 2);
           ctx.stroke();
@@ -637,7 +631,6 @@ export default function App() {
       for (let i = 0; i < activeCount; i++) {
         const p = pts[i];
         
-        // Z-axis movement accelerated by Sub-bass
         p.z -= forwardBoost * p.vz;
         if (p.z <= 0) {
           p.z = 2000;
@@ -647,7 +640,7 @@ export default function App() {
 
         const k = 400 / p.z;
         
-        // MIDS: Vortex angular rotation around center
+        // VORTEX SWIRL: Uses signed vortexSpeed (Negative for Counter-Clockwise!)
         const distCenter = Math.hypot(p.x, p.y);
         const swirlAngle = vortexSpeed * (1200 / (distCenter + 60));
         const cosS = Math.cos(swirlAngle);
@@ -657,40 +650,39 @@ export default function App() {
         p.x = nx;
         p.y = ny;
 
-        // LOWS: Push particles outward on kick drums
-        if (bands.low > 0.3) {
-          const push = 1 + bands.low * 0.04;
+        // Radial push outward on Kick / Shockwave
+        if (bands.low > 0.3 || shockMod > 0.2) {
+          const push = 1 + (bands.low + shockMod) * 0.05;
           p.x *= push;
           p.y *= push;
-          if (distCenter > 1500) {
-            p.x *= 0.6;
-            p.y *= 0.6;
+          if (distCenter > 1600) {
+            p.x *= 0.55;
+            p.y *= 0.55;
           }
         }
 
-        // MIDS: Undulating wave current on Y-axis
-        const waveOffset = Math.sin(p.x * 0.01 + waveFreq) * (bands.mid * 35);
+        // Sinusoidal Wave Undulation
+        const waveOffset = Math.sin(p.x * 0.01 + waveFreq) * ((bands.mid + waveMod) * 45);
         const screenX = cx + p.x * k;
         const screenY = cy + (p.y + waveOffset) * k;
 
         if (screenX >= 0 && screenX < W && screenY >= 0 && screenY < H) {
-          // HIGHS: Sparkle sizing & flash intensity
-          const sparkle = highActive ? (1 + Math.sin(i + st.time * 20) * bands.high * 1.5) : 1;
+          const sparkle = highActive ? (1 + Math.sin(i + st.time * 20) * (bands.high + laserMod) * 2.0) : 1;
           const pSize = Math.max(1, p.size * k * (3.5 * lowPulse) * sparkle);
           
-          const colIndex = (i + Math.floor(st.time * 3)) % palColors.length;
+          const colIndex = (i + colorOffset) % palColors.length;
           const col = palColors[colIndex];
-          const alpha = Math.min(1, (1 - p.z / 2000) * (0.6 + bloomMod * 0.4 + bands.high * 0.3));
+          const alpha = Math.min(1, (1 - p.z / 2000) * (0.6 + bloomMod * 0.4 + (bands.high + laserMod) * 0.4));
 
           ctx.fillStyle = col;
-          ctx.shadowBlur = (8 + bands.high * 16) * Math.min(bloomMod, 2);
+          ctx.shadowBlur = (8 + (bands.high + laserMod) * 20) * Math.min(bloomMod, 2);
           ctx.shadowColor = col;
 
           ctx.beginPath();
           ctx.arc(screenX, screenY, pSize, 0, Math.PI * 2);
           ctx.fill();
 
-          // HIGHS: Constellation filament lightning between adjacent particles
+          // Lightning Constellation Filaments
           if (highActive && i % 4 === 0 && i < activeCount - 1) {
             const nextP = pts[i + 1];
             const nextK = 400 / nextP.z;
@@ -698,10 +690,10 @@ export default function App() {
             const nextScreenY = cy + (nextP.y + waveOffset) * nextK;
             const filamentDist = Math.hypot(screenX - nextScreenX, screenY - nextScreenY);
 
-            if (filamentDist < 120 + bands.high * 100) {
+            if (filamentDist < 140 + (bands.high + laserMod) * 120) {
               ctx.strokeStyle = col;
-              ctx.lineWidth = 1 + bands.high * 1.5;
-              ctx.globalAlpha = Math.min(0.8, (1 - filamentDist / 220) * bands.high);
+              ctx.lineWidth = 1 + (bands.high + laserMod) * 2;
+              ctx.globalAlpha = Math.min(0.85, (1 - filamentDist / 260) * (bands.high + laserMod));
               ctx.beginPath();
               ctx.moveTo(screenX, screenY);
               ctx.lineTo(nextScreenX, nextScreenY);
