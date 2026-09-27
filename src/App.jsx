@@ -375,11 +375,11 @@ export default function App() {
       const route = modMatrix[bandKey];
       if (!route || route.target !== targetId) return 0;
       const rawVal = Number(currentBandValues[bandKey]) || 0;
-      const gateThresh = (Number(route.gate) || 0) / 100;
+      const gateThresh = (Number(route.gate ?? 0)) / 100;
       // Depth: audio-reactive sensitivity (0-500% → 0-5x multiplier on signal above gate)
-      const depth = (Number(route.amount) || 0) / 100;
+      const depth = (Number(route.amount ?? 0)) / 100;
       // Intensity: flat output amplifier applied once gate clears (0-400% → 0-4x)
-      const intensity = (Number(route.intensity) || 100) / 100;
+      const intensity = (route.intensity !== undefined ? Number(route.intensity) : 100) / 100;
 
       // If signal does not pass threshold gate, output is zeroed
       if (rawVal < gateThresh) return 0;
@@ -1175,43 +1175,43 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Gate</span>
                       <input
-                        type="range" min="0" max="90" value={modMatrix.sub.gate || 0}
+                        type="range" min="0" max="90" value={modMatrix.sub.gate ?? 0}
                         onChange={e => handleMatrixChange('sub', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
                         title="Noise / Trigger Gate Threshold"
                       />
-                      <span>{modMatrix.sub.gate || 0}%</span>
+                      <span>{modMatrix.sub.gate ?? 0}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="500" value={modMatrix.sub.amount}
+                        type="range" min="0" max="500" value={modMatrix.sub.amount ?? 150}
                         onChange={e => handleMatrixChange('sub', 'amount', Number(e.target.value))}
                         className="fader-mini"
                         title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
-                      <span>{modMatrix.sub.amount}%</span>
+                      <span>{modMatrix.sub.amount ?? 150}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Intensity</span>
                       <input
-                        type="range" min="0" max="400" value={modMatrix.sub.intensity || 100}
+                        type="range" min="0" max="400" value={modMatrix.sub.intensity ?? 100}
                         onChange={e => handleMatrixChange('sub', 'intensity', Number(e.target.value))}
                         className="fader-mini intensity-slider"
                         title="Output strength: flat amplifier applied to visual effect once gate clears"
                       />
-                      <span>{modMatrix.sub.intensity || 100}%</span>
+                      <span>{modMatrix.sub.intensity ?? 100}%</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* LOW BASS STRIP */}
-              <div className={`device-channel ${levels.low >= (modMatrix.low.gate || 0) / 100 && levels.low > 0.02 ? 'gate-triggered' : ''}`}>
+              <div className={`device-channel ${levels.low >= (modMatrix.low.gate ?? 0) / 100 && levels.low > 0.02 ? 'gate-triggered' : ''}`}>
                 <div className="channel-banner" style={{ backgroundColor: '#ff9900' }}>Low / Kick (60–250Hz)</div>
                 <div className="channel-body">
-                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.low.gate || 0}%`}>
-                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.low.gate || 0}%` }}></div>
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.low.gate ?? 0}%`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.low.gate ?? 0}%` }}></div>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.low * (lowGain / 100) * 100)}%`, backgroundColor: '#ff9900' }}></div>
                   </div>
                   <div className="control-column">
@@ -1237,43 +1237,43 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Gate</span>
                       <input
-                        type="range" min="0" max="90" value={modMatrix.low.gate || 0}
+                        type="range" min="0" max="90" value={modMatrix.low.gate ?? 0}
                         onChange={e => handleMatrixChange('low', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
                         title="Noise / Trigger Gate Threshold"
                       />
-                      <span>{modMatrix.low.gate || 0}%</span>
+                      <span>{modMatrix.low.gate ?? 0}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="500" value={modMatrix.low.amount}
+                        type="range" min="0" max="500" value={modMatrix.low.amount ?? 150}
                         onChange={e => handleMatrixChange('low', 'amount', Number(e.target.value))}
                         className="fader-mini"
                         title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
-                      <span>{modMatrix.low.amount}%</span>
+                      <span>{modMatrix.low.amount ?? 150}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Intensity</span>
                       <input
-                        type="range" min="0" max="400" value={modMatrix.low.intensity || 100}
+                        type="range" min="0" max="400" value={modMatrix.low.intensity ?? 100}
                         onChange={e => handleMatrixChange('low', 'intensity', Number(e.target.value))}
                         className="fader-mini intensity-slider"
                         title="Output strength: flat amplifier applied to visual effect once gate clears"
                       />
-                      <span>{modMatrix.low.intensity || 100}%</span>
+                      <span>{modMatrix.low.intensity ?? 100}%</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* MIDS STRIP */}
-              <div className={`device-channel ${levels.mid >= (modMatrix.mid.gate || 0) / 100 && levels.mid > 0.02 ? 'gate-triggered' : ''}`}>
+              <div className={`device-channel ${levels.mid >= (modMatrix.mid.gate ?? 0) / 100 && levels.mid > 0.02 ? 'gate-triggered' : ''}`}>
                 <div className="channel-banner" style={{ backgroundColor: '#00ffcc' }}>Mids / Vocal (250–2.5kHz)</div>
                 <div className="channel-body">
-                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.mid.gate || 0}%`}>
-                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.mid.gate || 0}%` }}></div>
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.mid.gate ?? 0}%`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.mid.gate ?? 0}%` }}></div>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.mid * (midGain / 100) * 100)}%`, backgroundColor: '#00ffcc' }}></div>
                   </div>
                   <div className="control-column">
@@ -1299,43 +1299,43 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Gate</span>
                       <input
-                        type="range" min="0" max="90" value={modMatrix.mid.gate || 0}
+                        type="range" min="0" max="90" value={modMatrix.mid.gate ?? 0}
                         onChange={e => handleMatrixChange('mid', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
                         title="Noise / Trigger Gate Threshold"
                       />
-                      <span>{modMatrix.mid.gate || 0}%</span>
+                      <span>{modMatrix.mid.gate ?? 0}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="500" value={modMatrix.mid.amount}
+                        type="range" min="0" max="500" value={modMatrix.mid.amount ?? 150}
                         onChange={e => handleMatrixChange('mid', 'amount', Number(e.target.value))}
                         className="fader-mini"
                         title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
-                      <span>{modMatrix.mid.amount}%</span>
+                      <span>{modMatrix.mid.amount ?? 150}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Intensity</span>
                       <input
-                        type="range" min="0" max="400" value={modMatrix.mid.intensity || 100}
+                        type="range" min="0" max="400" value={modMatrix.mid.intensity ?? 100}
                         onChange={e => handleMatrixChange('mid', 'intensity', Number(e.target.value))}
                         className="fader-mini intensity-slider"
                         title="Output strength: flat amplifier applied to visual effect once gate clears"
                       />
-                      <span>{modMatrix.mid.intensity || 100}%</span>
+                      <span>{modMatrix.mid.intensity ?? 100}%</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* HIGHS STRIP */}
-              <div className={`device-channel ${levels.high >= (modMatrix.high.gate || 0) / 100 && levels.high > 0.02 ? 'gate-triggered' : ''}`}>
+              <div className={`device-channel ${levels.high >= (modMatrix.high.gate ?? 0) / 100 && levels.high > 0.02 ? 'gate-triggered' : ''}`}>
                 <div className="channel-banner" style={{ backgroundColor: '#a855f7' }}>Highs / Hi-Hat (2.5k–20kHz)</div>
                 <div className="channel-body">
-                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.high.gate || 0}%`}>
-                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.high.gate || 0}%` }}></div>
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.high.gate ?? 0}%`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.high.gate ?? 0}%` }}></div>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.high * (highGain / 100) * 100)}%`, backgroundColor: '#a855f7' }}></div>
                   </div>
                   <div className="control-column">
@@ -1361,32 +1361,32 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Gate</span>
                       <input
-                        type="range" min="0" max="90" value={modMatrix.high.gate || 0}
+                        type="range" min="0" max="90" value={modMatrix.high.gate ?? 0}
                         onChange={e => handleMatrixChange('high', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
                         title="Noise / Trigger Gate Threshold"
                       />
-                      <span>{modMatrix.high.gate || 0}%</span>
+                      <span>{modMatrix.high.gate ?? 0}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="500" value={modMatrix.high.amount}
+                        type="range" min="0" max="500" value={modMatrix.high.amount ?? 150}
                         onChange={e => handleMatrixChange('high', 'amount', Number(e.target.value))}
                         className="fader-mini"
                         title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
-                      <span>{modMatrix.high.amount}%</span>
+                      <span>{modMatrix.high.amount ?? 150}%</span>
                     </div>
                     <div className="mod-depth-row">
                       <span>Intensity</span>
                       <input
-                        type="range" min="0" max="400" value={modMatrix.high.intensity || 100}
+                        type="range" min="0" max="400" value={modMatrix.high.intensity ?? 100}
                         onChange={e => handleMatrixChange('high', 'intensity', Number(e.target.value))}
                         className="fader-mini intensity-slider"
                         title="Output strength: flat amplifier applied to visual effect once gate clears"
                       />
-                      <span>{modMatrix.high.intensity || 100}%</span>
+                      <span>{modMatrix.high.intensity ?? 100}%</span>
                     </div>
                   </div>
                 </div>
