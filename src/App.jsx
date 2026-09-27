@@ -67,6 +67,7 @@ export default function App() {
   const wakeLockRef = useRef(null);
   const renderFrameRef = useRef(null);
   const lastUiUpdateRef = useRef(0);
+  const lastRenderTimestampRef = useRef(performance.now());
 
   // App & Source State
   const [isRunning, setIsRunning] = useState(false);
@@ -225,6 +226,27 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibility);
       if (bgTimerRef.current) clearInterval(bgTimerRef.current);
     };
+  }, [renderLoop]);
+
+  // Self-Healing Render Watchdog: Guarantees visualizer NEVER freezes
+  useEffect(() => {
+    const watchdog = setInterval(() => {
+      if (stateRef.current.isRunning && !document.hidden) {
+        const now = performance.now();
+        const elapsed = now - lastRenderTimestampRef.current;
+        // If render loop missed frames or stalled for >250ms, auto-recover rAF
+        if (elapsed > 250) {
+          console.warn(`[Watchdog] Stalled frame detected (${Math.round(elapsed)}ms). Force restarting render loop...`);
+          cancelAnimationFrame(animRef.current);
+          animRef.current = requestAnimationFrame(renderLoop);
+        }
+        // Keep audio context awake
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume().catch(() => {});
+        }
+      }
+    }, 400);
+    return () => clearInterval(watchdog);
   }, [renderLoop]);
 
   // Handle Canvas Resize
@@ -401,6 +423,7 @@ export default function App() {
   // Single Frame Render Engine
   const renderFrame = () => {
     if (!analyserRef.current || !canvasRef.current) return;
+    lastRenderTimestampRef.current = performance.now();
 
     // Automatically resume suspended audio context if Chrome/Edge paused it
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
@@ -1100,6 +1123,18 @@ export default function App() {
             <div className="hud-pill">
               <span className="hud-label">PEAK</span>
               <span className="hud-val">{Math.round(levels.peak * 100)}%</span>
+            </div>
+            <div
+              className="hud-pill"
+              style={{ cursor: 'pointer' }}
+              onClick={() => {
+                cancelAnimationFrame(animRef.current);
+                animRef.current = requestAnimationFrame(renderLoop);
+              }}
+              title="Click to force-refresh render loop"
+            >
+              <span className="hud-label">SYNC</span>
+              <span className="hud-val" style={{ color: '#00ffcc' }}>REALTIME ⚡</span>
             </div>
           </div>
         )}
