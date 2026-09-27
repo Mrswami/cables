@@ -471,46 +471,113 @@ export default function App() {
       ctx.restore();
     }
 
-    // --- ENGINE 2: 3D HYPERSPACE WARP TUNNEL ---
+    // --- ENGINE 2: 3D HYPERSPACE WARP TUNNEL (MULTI-BAND REACTIVE) ---
     else if (st.activeEngine === 'tunnel') {
       ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(st.rot * 0.5);
+      // Sub-bass camera tremor & warp center
+      const bassShakeX = (Math.random() - 0.5) * (bands.sub * 18);
+      const bassShakeY = (Math.random() - 0.5) * (bands.sub * 18);
+      ctx.translate(cx + bassShakeX, cy + bassShakeY);
+      ctx.rotate(st.rot * 0.5 + (bands.mid * 0.2));
 
-      const tunnelRings = 24;
+      const tunnelRings = 28;
       const sides = Math.max(3, Math.round(st.params.repetition + repMod * 4));
 
+      // LAYER 1: HIGHS (High-frequency Hyperspace Starfield Streaks & Laser Beams)
+      if (bands.high > 0.08) {
+        const starCount = Math.floor(20 + bands.high * 50);
+        ctx.save();
+        for (let s = 0; s < starCount; s++) {
+          const angle = (s / starCount) * Math.PI * 2 + (st.time * 2);
+          const rInner = (Math.min(W, H) * 0.05) + Math.random() * 20;
+          const rOuter = (Math.min(W, H) * 0.6) * (1 + bands.high * 0.5);
+          const x1 = Math.cos(angle) * rInner;
+          const y1 = Math.sin(angle) * rInner;
+          const x2 = Math.cos(angle) * rOuter;
+          const y2 = Math.sin(angle) * rOuter;
+          const laserCol = palColors[s % palColors.length];
+
+          ctx.strokeStyle = laserCol;
+          ctx.lineWidth = 1 + bands.high * 2.5;
+          ctx.shadowBlur = 10 * bloomMod;
+          ctx.shadowColor = laserCol;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // LAYER 2: LOW & SUB (Main Pulsing 3D Polygonal Portal Rings)
       for (let i = tunnelRings; i >= 1; i--) {
-        const depth = ((i * 40 + st.tunnelZ * 100) % 1000) / 1000;
-        const scale = Math.pow(depth, 3) * (Math.min(W, H) * 0.8) * (1 + bands.sub * 0.6);
-        const alpha = Math.sin(depth * Math.PI) * (0.5 + bloomMod * 0.4);
+        const depth = ((i * 35 + st.tunnelZ * 120) % 1000) / 1000;
+        // Sub-bass expands field of view, Low-bass punches ring diameter
+        const bassExpansion = (1 + bands.sub * 0.8 + bands.low * 0.4);
+        const scale = Math.pow(depth, 3.2) * (Math.min(W, H) * 0.9) * bassExpansion;
+        const alpha = Math.sin(depth * Math.PI) * (0.4 + bloomMod * 0.5);
         const col = palColors[i % palColors.length];
 
         ctx.strokeStyle = col;
-        ctx.lineWidth = (1 - depth) * 4 + bloomMod * 2;
-        ctx.shadowBlur = 15 * Math.min(bloomMod, 2) * (1 - depth);
+        ctx.lineWidth = (1 - depth) * (3 + bands.low * 4) + bloomMod * 2;
+        ctx.shadowBlur = 14 * Math.min(bloomMod, 2) * (1 - depth);
         ctx.shadowColor = col;
 
         ctx.beginPath();
         for (let s = 0; s <= sides; s++) {
-          const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2);
-          const x = Math.cos(a) * scale;
-          const y = Math.sin(a) * scale;
+          // Mid frequencies twist ring vertices and induce wave ripples
+          const midRipple = Math.sin(s * 2 + st.time * 6) * (bands.mid * 25 * depth);
+          const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2 + bands.mid * 1.5);
+          const x = Math.cos(a) * (scale + midRipple);
+          const y = Math.sin(a) * (scale + midRipple);
           s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
         ctx.closePath();
         ctx.stroke();
 
-        // Cross-tunnel vector lines
-        if (i % 4 === 0) {
-          const crossCol = palColors[(i + 2) % palColors.length];
-          ctx.strokeStyle = crossCol;
+        // LAYER 3: MIDS (Harmonic Inner Resonator Rings & Cross-Struts)
+        if (i % 3 === 0 && bands.mid > 0.12) {
+          const midCol = palColors[(i + 1) % palColors.length];
+          const innerScale = scale * 0.55 * (1 + Math.sin(st.time * 8 + depth * 5) * bands.mid * 0.3);
+          ctx.strokeStyle = midCol;
+          ctx.lineWidth = 1.5 + bands.mid * 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, Math.max(1, innerScale), 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Longitudinal tunnel rail struts
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.25})`;
           ctx.beginPath();
           ctx.moveTo(0, 0);
           ctx.lineTo(Math.cos(st.rot + depth) * scale, Math.sin(st.rot + depth) * scale);
           ctx.stroke();
         }
+
+        // LAYER 4: HIGHS (Crystalline Corner Nodes on Outer Perimeter)
+        if (bands.high > 0.25 && depth > 0.4) {
+          const sparkCol = palColors[(i + 3) % palColors.length];
+          ctx.fillStyle = sparkCol;
+          for (let s = 0; s < sides; s++) {
+            const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2);
+            const nx = Math.cos(a) * scale;
+            const ny = Math.sin(a) * scale;
+            ctx.beginPath();
+            ctx.arc(nx, ny, 2 + bands.high * 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
       }
+
+      // Center Singularity (Sub-bass core pulse)
+      const coreSize = (8 + bands.sub * 35 + bands.low * 15) * (1 + bloomMod * 0.5);
+      const coreCol = palColors[0];
+      ctx.fillStyle = coreCol;
+      ctx.shadowBlur = 25 * Math.min(bloomMod, 2);
+      ctx.shadowColor = coreCol;
+      ctx.beginPath();
+      ctx.arc(0, 0, coreSize, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.restore();
     }
 
