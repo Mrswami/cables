@@ -1506,7 +1506,7 @@ export default function App() {
                   <span className="idle-action-sub">Tauri Desktop &middot; Zero-Latency WASAPI</span>
                 </button>
                 <a 
-                  href="/Cables_2.0_Setup.exe" 
+                  href="/Cables_2.0_Setup.zip" 
                   download 
                   className="idle-action-btn" 
                   style={{ textDecoration: 'none', background: '#7928ca' }}
