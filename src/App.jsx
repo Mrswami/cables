@@ -582,25 +582,74 @@ export default function App() {
       ctx.restore();
     }
 
-    // --- ENGINE 3: PARTICLE SWARM & FLUID VORTEX ---
+    // --- ENGINE 3: PARTICLE SWARM & FLUID VORTEX (MULTI-BAND DISPERSION) ---
     else if (st.activeEngine === 'particles') {
       ctx.save();
       const pts = particlesRef.current;
-      const particleSpeed = (1 + bands.sub * 2 + warpMod) * st.params.speed;
-      const activeCount = Math.min(pts.length, Math.round(st.params.particleCount + partMod * 600));
+      
+      // SUB BASS: Massive forward warp velocity + central gravity burst
+      const forwardBoost = (1 + bands.sub * 4.5 + warpMod * 2.0) * st.params.speed;
+      const subShockwave = bands.sub > 0.4;
+      
+      // LOW BASS: Radial expansion impulse & mass scaling
+      const lowPulse = 1 + bands.low * 2.2;
+      
+      // MIDS: Vortex twist velocity & harmonic wave current
+      const vortexSpeed = (0.015 + bands.mid * 0.08 + rotMod * 0.05);
+      const waveFreq = st.time * 4 + bands.mid * 6;
+      
+      // HIGHS: Constellation filament density & sparkling stardust
+      const highActive = bands.high > 0.15;
+      const activeCount = Math.min(pts.length, Math.round(st.params.particleCount + partMod * 800 + bands.high * 400));
 
+      // 1. SUB SHOCKWAVE RING (Rendered during heavy sub-bass hits)
+      if (subShockwave) {
+        ctx.save();
+        const shockRadius = ((st.time * 800) % Math.max(W, H)) * (bands.sub * 0.9);
+        ctx.strokeStyle = palColors[0];
+        ctx.lineWidth = 2 + bands.sub * 6;
+        ctx.shadowBlur = 20 * bloomMod;
+        ctx.shadowColor = palColors[0];
+        ctx.beginPath();
+        ctx.arc(cx, cy, shockRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 2. LOW/KICK ORBITAL ENERGY RINGS (Concentric acoustic field lines)
+      if (bands.low > 0.25) {
+        ctx.save();
+        const numRings = 3;
+        for (let r = 1; r <= numRings; r++) {
+          const rRadius = (Math.min(W, H) * 0.18 * r) * lowPulse;
+          const rCol = palColors[r % palColors.length];
+          ctx.strokeStyle = rCol;
+          ctx.lineWidth = 1 + bands.low * 2;
+          ctx.globalAlpha = Math.min(0.6, bands.low * 0.5);
+          ctx.beginPath();
+          ctx.arc(cx, cy, rRadius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 3. PARTICLE SIMULATION LOOP
       for (let i = 0; i < activeCount; i++) {
         const p = pts[i];
-        p.z -= particleSpeed * p.vz;
-        if (p.z <= 0) p.z = 2000;
+        
+        // Z-axis movement accelerated by Sub-bass
+        p.z -= forwardBoost * p.vz;
+        if (p.z <= 0) {
+          p.z = 2000;
+          p.x = (Math.random() - 0.5) * 2000;
+          p.y = (Math.random() - 0.5) * 2000;
+        }
 
         const k = 400 / p.z;
-        const screenX = cx + p.x * k;
-        const screenY = cy + p.y * k;
-
-        // Vortex swirling angle
+        
+        // MIDS: Vortex angular rotation around center
         const distCenter = Math.hypot(p.x, p.y);
-        const swirlAngle = (0.01 + bands.mid * 0.05) * (1000 / (distCenter + 50));
+        const swirlAngle = vortexSpeed * (1200 / (distCenter + 60));
         const cosS = Math.cos(swirlAngle);
         const sinS = Math.sin(swirlAngle);
         const nx = p.x * cosS - p.y * sinS;
@@ -608,34 +657,61 @@ export default function App() {
         p.x = nx;
         p.y = ny;
 
+        // LOWS: Push particles outward on kick drums
+        if (bands.low > 0.3) {
+          const push = 1 + bands.low * 0.04;
+          p.x *= push;
+          p.y *= push;
+          if (distCenter > 1500) {
+            p.x *= 0.6;
+            p.y *= 0.6;
+          }
+        }
+
+        // MIDS: Undulating wave current on Y-axis
+        const waveOffset = Math.sin(p.x * 0.01 + waveFreq) * (bands.mid * 35);
+        const screenX = cx + p.x * k;
+        const screenY = cy + (p.y + waveOffset) * k;
+
         if (screenX >= 0 && screenX < W && screenY >= 0 && screenY < H) {
-          const pSize = Math.max(1, p.size * k * 4 * (1 + bands.high));
-          const colIndex = (i + Math.floor(st.time * 2)) % palColors.length;
+          // HIGHS: Sparkle sizing & flash intensity
+          const sparkle = highActive ? (1 + Math.sin(i + st.time * 20) * bands.high * 1.5) : 1;
+          const pSize = Math.max(1, p.size * k * (3.5 * lowPulse) * sparkle);
+          
+          const colIndex = (i + Math.floor(st.time * 3)) % palColors.length;
           const col = palColors[colIndex];
+          const alpha = Math.min(1, (1 - p.z / 2000) * (0.6 + bloomMod * 0.4 + bands.high * 0.3));
 
           ctx.fillStyle = col;
-          ctx.shadowBlur = 8 * Math.min(bloomMod, 2);
+          ctx.shadowBlur = (8 + bands.high * 16) * Math.min(bloomMod, 2);
           ctx.shadowColor = col;
 
           ctx.beginPath();
           ctx.arc(screenX, screenY, pSize, 0, Math.PI * 2);
           ctx.fill();
 
-          // Connective constellation filaments
-          if (bands.high > 0.4 && i % 8 === 0 && i < activeCount - 1) {
+          // HIGHS: Constellation filament lightning between adjacent particles
+          if (highActive && i % 4 === 0 && i < activeCount - 1) {
             const nextP = pts[i + 1];
             const nextK = 400 / nextP.z;
-            const nx = cx + nextP.x * nextK;
-            const ny = cy + nextP.y * nextK;
-            ctx.strokeStyle = col;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(screenX, screenY);
-            ctx.lineTo(nx, ny);
-            ctx.stroke();
+            const nextScreenX = cx + nextP.x * nextK;
+            const nextScreenY = cy + (nextP.y + waveOffset) * nextK;
+            const filamentDist = Math.hypot(screenX - nextScreenX, screenY - nextScreenY);
+
+            if (filamentDist < 120 + bands.high * 100) {
+              ctx.strokeStyle = col;
+              ctx.lineWidth = 1 + bands.high * 1.5;
+              ctx.globalAlpha = Math.min(0.8, (1 - filamentDist / 220) * bands.high);
+              ctx.beginPath();
+              ctx.moveTo(screenX, screenY);
+              ctx.lineTo(nextScreenX, nextScreenY);
+              ctx.stroke();
+              ctx.globalAlpha = 1.0;
+            }
           }
         }
       }
+
       ctx.restore();
     }
 
