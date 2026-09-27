@@ -700,6 +700,24 @@ body {
   cursor: pointer;
 }
 
+/* Gate slider: orange — threshold / danger zone */
+.fader-mini.gate-slider {
+  accent-color: #ff9900;
+}
+
+/* Intensity slider: lime green — output strength once gate clears */
+.fader-mini.intensity-slider {
+  accent-color: #39ff14;
+}
+
+/* Row label color cues to match slider colors */
+.mod-depth-row:has(.gate-slider) {
+  color: #ff9900;
+}
+.mod-depth-row:has(.intensity-slider) {
+  color: #39ff14;
+}
+
 /* TAB 2 & 4: PARAMETERS & POST FX GRID */
 .rack-params-grid {
   display: grid;

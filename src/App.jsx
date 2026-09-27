@@ -88,10 +88,10 @@ export default function App() {
 
   // Ableton-style Modular Matrix Routing: map audio sources to visual targets with Threshold Gate & Depth
   const [modMatrix, setModMatrix] = useState({
-    sub: { target: 'warp_tunnel', amount: 100, gate: 15 },
-    low: { target: 'shockwave', amount: 90, gate: 20 },
-    mid: { target: 'wave_current', amount: 80, gate: 15 },
-    high: { target: 'reverse_spin', amount: 110, gate: 10 }
+    sub: { target: 'warp_tunnel', amount: 150, gate: 15, intensity: 120 },
+    low: { target: 'shockwave', amount: 150, gate: 20, intensity: 120 },
+    mid: { target: 'wave_current', amount: 130, gate: 15, intensity: 100 },
+    high: { target: 'reverse_spin', amount: 180, gate: 10, intensity: 130 }
   });
 
   // Dedicated Visual Engine Parameters
@@ -287,7 +287,7 @@ export default function App() {
     particlesRef.current = pts;
   };
 
-  // Capture Firefox/Chrome YouTube / System Audio via getDisplayMedia
+  // Capture system/tab audio via getDisplayMedia (Edge/Chrome preferred)
   const captureTabAudio = async () => {
     setError('');
     try {
@@ -306,7 +306,7 @@ export default function App() {
       buildAudioGraph(stream);
       setSourceType('tab');
     } catch (err) {
-      setError('System/Tab audio capture was cancelled. In the picker, make sure to check "Share audio"!');
+      setError('Audio capture cancelled or blocked. In the Edge/Chrome share picker, select a tab or window and enable the "Share with system audio" toggle at the bottom before clicking Share.');
     }
   };
 
@@ -340,14 +340,18 @@ export default function App() {
       if (!route || route.target !== targetId) return 0;
       const rawVal = Number(currentBandValues[bandKey]) || 0;
       const gateThresh = (Number(route.gate) || 0) / 100;
-      const amount = (Number(route.amount) || 0) / 100;
+      // Depth: audio-reactive sensitivity (0-500% → 0-5x multiplier on signal above gate)
+      const depth = (Number(route.amount) || 0) / 100;
+      // Intensity: flat output amplifier applied once gate clears (0-400% → 0-4x)
+      const intensity = (Number(route.intensity) || 100) / 100;
 
       // If signal does not pass threshold gate, output is zeroed
       if (rawVal < gateThresh) return 0;
 
-      // Normalized active range above gate
+      // activeRange: 0–1 representing how far above gate the signal is
       const activeRange = (rawVal - gateThresh) / (1 - gateThresh + 0.0001);
-      return activeRange * amount;
+      // Final output = how reactive (depth) × how loud (intensity)
+      return Math.min(8, activeRange * depth * intensity);
     };
 
     modSum += evalBand('sub');
@@ -438,7 +442,8 @@ export default function App() {
     // Film Strobe & Glow Bloom
     const strobeBloomMod = getModValue('film_strobe', bands);
 
-    const bloomMod = strobeBloomMod * 1.5 + (st.params.bloom / 100);
+    const bloomMod = (strobeBloomMod || 0) * 1.5 + (st.params.bloom / 100);
+    const chromaMod = (st.params.chroma / 100);
     const grainMod = (st.params.grain / 100);
 
     // Angular accumulation with bidirectional spin
@@ -911,7 +916,7 @@ export default function App() {
             id="btn-capture-tab"
             className={`transport-btn capture-btn ${sourceType === 'tab' ? 'active-tab' : ''}`}
             onClick={captureTabAudio}
-            title="Capture sound from Firefox, Chrome YouTube tab, Spotify, or desktop soundcard"
+            title="Best in Edge/Chrome: pick a tab/window and toggle 'Share with system audio' at the bottom of the share dialog. Firefox works too but requires a separate audio permission step."
           >
             <Icons.Monitor /> Capture Tab Audio
           </button>
@@ -985,18 +990,29 @@ export default function App() {
         {!isRunning && (
           <div className="idle-overlay">
             <div className="idle-card">
-              <div className="idle-badge">Soundcard & Tab Audio Link</div>
+              <div className="idle-badge">Soundcard &amp; Tab Audio Link</div>
               <h2>Ready to Visualize</h2>
-              <p>
-                Click <strong>Capture Tab Audio</strong> (Chrome/Edge) or <strong>Microphone / Stereo Mix</strong> (Firefox)
-                to stream music directly from your YouTube tab, SoundCloud, or media player.
-              </p>
+              <p>Stream audio from any YouTube tab, SoundCloud, Spotify, or media player directly into the visualizer.</p>
+
+              <div className="browser-tip-box">
+                <div className="browser-tip-row">
+                  <span className="browser-tip-badge recommended">&#x2B50; Edge / Chrome</span>
+                  <span className="browser-tip-text">Click <strong>Capture Tab Audio</strong> &rarr; pick your tab &rarr; enable <strong>&quot;Share with system audio&quot;</strong> toggle &rarr; Share. Audio flows through instantly.</span>
+                </div>
+                <div className="browser-tip-row">
+                  <span className="browser-tip-badge firefox">Firefox</span>
+                  <span className="browser-tip-text">Use <strong>Microphone / Stereo Mix</strong> instead &mdash; set Windows sound input to <em>Stereo Mix</em> to capture system audio.</span>
+                </div>
+              </div>
+
               <div className="idle-actions">
                 <button className="idle-action-btn primary" onClick={captureTabAudio}>
-                  <Icons.Monitor /> Capture YouTube / Tab Audio
+                  <Icons.Monitor /> Capture Tab Audio
+                  <span className="idle-action-sub">Edge / Chrome &middot; enable &quot;Share with system audio&quot;</span>
                 </button>
                 <button className="idle-action-btn" onClick={captureMic}>
                   <Icons.Mic /> Microphone / Stereo Mix
+                  <span className="idle-action-sub">Firefox &middot; or physical mic input</span>
                 </button>
               </div>
               {error && <div className="error-callout">{error}</div>}
@@ -1004,7 +1020,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Live Audio Reactive HUD */}
+                {/* Live Audio Reactive HUD */}
         {isRunning && (
           <div className="live-hud-strip">
             <div className="hud-pill">
@@ -1103,11 +1119,22 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="200" value={modMatrix.sub.amount}
+                        type="range" min="0" max="500" value={modMatrix.sub.amount}
                         onChange={e => handleMatrixChange('sub', 'amount', Number(e.target.value))}
                         className="fader-mini"
+                        title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
                       <span>{modMatrix.sub.amount}%</span>
+                    </div>
+                    <div className="mod-depth-row">
+                      <span>Intensity</span>
+                      <input
+                        type="range" min="0" max="400" value={modMatrix.sub.intensity || 100}
+                        onChange={e => handleMatrixChange('sub', 'intensity', Number(e.target.value))}
+                        className="fader-mini intensity-slider"
+                        title="Output strength: flat amplifier applied to visual effect once gate clears"
+                      />
+                      <span>{modMatrix.sub.intensity || 100}%</span>
                     </div>
                   </div>
                 </div>
@@ -1154,11 +1181,22 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="200" value={modMatrix.low.amount}
+                        type="range" min="0" max="500" value={modMatrix.low.amount}
                         onChange={e => handleMatrixChange('low', 'amount', Number(e.target.value))}
                         className="fader-mini"
+                        title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
                       <span>{modMatrix.low.amount}%</span>
+                    </div>
+                    <div className="mod-depth-row">
+                      <span>Intensity</span>
+                      <input
+                        type="range" min="0" max="400" value={modMatrix.low.intensity || 100}
+                        onChange={e => handleMatrixChange('low', 'intensity', Number(e.target.value))}
+                        className="fader-mini intensity-slider"
+                        title="Output strength: flat amplifier applied to visual effect once gate clears"
+                      />
+                      <span>{modMatrix.low.intensity || 100}%</span>
                     </div>
                   </div>
                 </div>
@@ -1205,11 +1243,22 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="200" value={modMatrix.mid.amount}
+                        type="range" min="0" max="500" value={modMatrix.mid.amount}
                         onChange={e => handleMatrixChange('mid', 'amount', Number(e.target.value))}
                         className="fader-mini"
+                        title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
                       <span>{modMatrix.mid.amount}%</span>
+                    </div>
+                    <div className="mod-depth-row">
+                      <span>Intensity</span>
+                      <input
+                        type="range" min="0" max="400" value={modMatrix.mid.intensity || 100}
+                        onChange={e => handleMatrixChange('mid', 'intensity', Number(e.target.value))}
+                        className="fader-mini intensity-slider"
+                        title="Output strength: flat amplifier applied to visual effect once gate clears"
+                      />
+                      <span>{modMatrix.mid.intensity || 100}%</span>
                     </div>
                   </div>
                 </div>
@@ -1256,11 +1305,22 @@ export default function App() {
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
-                        type="range" min="0" max="200" value={modMatrix.high.amount}
+                        type="range" min="0" max="500" value={modMatrix.high.amount}
                         onChange={e => handleMatrixChange('high', 'amount', Number(e.target.value))}
                         className="fader-mini"
+                        title="Audio-reactive sensitivity: how much signal above gate drives the effect"
                       />
                       <span>{modMatrix.high.amount}%</span>
+                    </div>
+                    <div className="mod-depth-row">
+                      <span>Intensity</span>
+                      <input
+                        type="range" min="0" max="400" value={modMatrix.high.intensity || 100}
+                        onChange={e => handleMatrixChange('high', 'intensity', Number(e.target.value))}
+                        className="fader-mini intensity-slider"
+                        title="Output strength: flat amplifier applied to visual effect once gate clears"
+                      />
+                      <span>{modMatrix.high.intensity || 100}%</span>
                     </div>
                   </div>
                 </div>

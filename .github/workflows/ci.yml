@@ -1,244 +1,136 @@
-name: TouchArt Studio CI/CD
+name: Cables Audio Engine — CI/CD
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
+
+# Cancel in-progress runs on the same branch so only the latest counts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # ===========================
-  # Lint & Validate GLSL Shaders
-  # ===========================
+  # ─────────────────────────────────────────
+  # 1. LINT
+  # ─────────────────────────────────────────
   lint:
-    name: Lint & Validate
+    name: 🔍 Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 20
+      - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Validate package.json
-        run: node -e "const pkg = require('./package.json'); console.log('✅ Package:', pkg.name, pkg.version);"
+      - name: Run oxlint
+        run: npm run lint
 
-      - name: Validate GLSL Presets (No JS syntax in GLSL)
-        run: |
-          node -e "
-            const presets = require('./desktop/presetEquations.js');
-            let errors = 0;
-            for (const [key, preset] of Object.entries(presets)) {
-              // Check for common JS->GLSL bugs
-              if (preset.code.includes('Math.')) {
-                console.error('❌ GLSL Error in ' + key + ': Contains JavaScript Math. function');
-                errors++;
-              }
-              if (preset.code.includes('console.')) {
-                console.error('❌ GLSL Error in ' + key + ': Contains console. reference');
-                errors++;
-              }
-              if (preset.code.includes('var ') || preset.code.includes('let ') || preset.code.includes('const ')) {
-                console.error('❌ GLSL Error in ' + key + ': Contains JavaScript variable declaration');
-                errors++;
-              }
-              // Verify all 10 params are declared
-              for (let i = 1; i <= 10; i++) {
-                if (!preset.code.includes('u_param' + i)) {
-                  console.warn('⚠️  Warning: ' + key + ' does not use u_param' + i);
-                }
-              }
-              console.log('✅ ' + key + ': ' + preset.name);
-            }
-            if (errors > 0) {
-              console.error('\\n❌ Found ' + errors + ' GLSL validation errors');
-              process.exit(1);
-            }
-            console.log('\\n✅ All ' + Object.keys(presets).length + ' presets validated successfully');
-          "
-
-      - name: Validate Shader Engine Exports
-        run: |
-          node -e "
-            const Engine = require('./desktop/shaderEngine.js');
-            if (typeof Engine !== 'function') {
-              console.error('❌ ShaderEngine is not a valid constructor');
-              process.exit(1);
-            }
-            console.log('✅ ShaderEngine module exports valid');
-          "
-
-      - name: Validate Audio Ingest Exports
-        run: |
-          node -e "
-            const Ingest = require('./desktop/audioIngest.js');
-            if (typeof Ingest !== 'function') {
-              console.error('❌ AudioIngest is not a valid constructor');
-              process.exit(1);
-            }
-            console.log('✅ AudioIngest module exports valid');
-          "
-
-  # ===========================
-  # Build Electron App
-  # ===========================
+  # ─────────────────────────────────────────
+  # 2. BUILD
+  # ─────────────────────────────────────────
   build:
-    name: Build Electron (${{ matrix.os }})
+    name: 🏗️ Vite Build
+    runs-on: ubuntu-latest
     needs: lint
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 20
+      - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Verify Electron Installation
-        run: npx electron --version
+      - name: Build (Vite)
+        run: npm run build
 
-      - name: Build Validation (Dry Run)
+      - name: Verify build output
         run: |
-          node -e "
-            const fs = require('fs');
-            const path = require('path');
-            
-            // Verify all required files exist
-            const requiredFiles = [
-              'main.js',
-              'package.json',
-              'desktop/index.html',
-              'desktop/app.js',
-              'desktop/shaderEngine.js',
-              'desktop/audioIngest.js',
-              'desktop/presetEquations.js',
-              'desktop/styles.css',
-              'server/index.js'
-            ];
-            
-            let missing = 0;
-            requiredFiles.forEach(f => {
-              if (!fs.existsSync(f)) {
-                console.error('❌ Missing: ' + f);
-                missing++;
-              } else {
-                console.log('✅ Found: ' + f);
-              }
-            });
-            
-            if (missing > 0) {
-              process.exit(1);
-            }
-            console.log('\\n✅ All required files present');
-          "
+          echo "── Build output contents ──"
+          ls -lh desktop/
+          echo ""
+          test -f desktop/index.html && echo "✅ desktop/index.html present" || (echo "❌ desktop/index.html missing" && exit 1)
 
-      - name: Upload Build Artifacts
+      - name: Upload dist artifact
         uses: actions/upload-artifact@v4
         with:
-          name: touchart-studio-${{ matrix.os }}
-          path: |
-            main.js
-            package.json
-            desktop/
-            server/
-          retention-days: 30
+          name: cables-dist-${{ github.sha }}
+          path: desktop/
+          retention-days: 7
 
-  # ===========================
-  # Server Integration Test
-  # ===========================
-  server-test:
-    name: Server Integration Test
-    needs: lint
+  # ─────────────────────────────────────────
+  # 3a. DEPLOY PREVIEW (Pull Requests)
+  # ─────────────────────────────────────────
+  deploy-preview:
+    name: 🔍 Deploy Preview (PR)
     runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          name: cables-dist-${{ github.sha }}
+          path: desktop/
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: Deploy to Firebase Hosting Preview Channel
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER }}
+          projectId: cables-visualizer
+          target: cables
+          channelId: pr-${{ github.event.pull_request.number }}
+          expires: 7d
 
-      - name: Start Server & Health Check
+  # ─────────────────────────────────────────
+  # 3b. DEPLOY PRODUCTION (push to main)
+  # ─────────────────────────────────────────
+  deploy-production:
+    name: 🚀 Deploy Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cables-dist-${{ github.sha }}
+          path: desktop/
+
+      - name: Deploy to Firebase Hosting (Live)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER }}
+          projectId: cables-visualizer
+          target: cables
+          channelId: live
+
+      - name: Deployment summary
         run: |
-          # Start server in background
-          node server/index.js &
-          SERVER_PID=$!
-          
-          # Wait for server to start
-          sleep 3
-          
-          # Health check HTTP endpoint
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/status || echo "000")
-          
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "✅ Server HTTP health check passed (200 OK)"
-          else
-            echo "❌ Server HTTP health check failed (HTTP $HTTP_STATUS)"
-            kill $SERVER_PID 2>/dev/null
-            exit 1
-          fi
-          
-          # Verify API response structure
-          RESPONSE=$(curl -s http://localhost:3000/api/status)
-          echo "API Response: $RESPONSE"
-          
-          # Cleanup
-          kill $SERVER_PID 2>/dev/null
-          echo "✅ Server integration test passed"
-
-  # ===========================
-  # Release (on tag push)
-  # ===========================
-  release:
-    name: Create Release
-    needs: [lint, build, server-test]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: TouchArt Studio ${{ github.ref_name }}
-          body: |
-            ## TouchArt Studio Release ${{ github.ref_name }}
-            
-            ### Features
-            - 11 High-Impact GLSL Shader Presets
-            - 15 Real-Time Parameters (10 Scene + 4 Post-FX)
-            - Two-Pass Rendering Engine with Bloom, Chromatic Aberration, Vignette, Film Grain
-            - 64-Band EQ Visualizer
-            - Hardware Audio Device Selection & System Loopback Capture
-            - Auto-Gain Control (AGC) with Master Sensitivity Boost
-            - Preset Rules Manager with JSON Import/Export
-            - Audio Debug Monitor with Frame Timing Graph
-            
-            ### Installation
-            ```bash
-            git clone https://github.com/Mrswami/cables.git
-            cd cables
-            npm install
-            npm start
-            ```
-          draft: false
-          prerelease: false
+          echo "## ✅ Deployed to Production" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project:** cables-visualizer" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://cables.web.app" >> $GITHUB_STEP_SUMMARY
