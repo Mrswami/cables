@@ -76,7 +76,7 @@ jobs:
     name: 🔍 Deploy Preview (PR)
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER != ''
     permissions:
       pull-requests: write
 
@@ -100,13 +100,13 @@ jobs:
           expires: 7d
 
   # ─────────────────────────────────────────
-  # 3b. DEPLOY PRODUCTION (push to main)
+  # 3b. DEPLOY PRODUCTION (push to main with secret)
   # ─────────────────────────────────────────
   deploy-production:
     name: 🚀 Deploy Production
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER != ''
 
     steps:
       - uses: actions/checkout@v4
@@ -134,3 +134,26 @@ jobs:
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** https://cables.web.app" >> $GITHUB_STEP_SUMMARY
+
+  # ─────────────────────────────────────────
+  # 3c. DEPLOY NOTICE (when secret not yet configured)
+  # ─────────────────────────────────────────
+  deploy-notice:
+    name: ℹ️ Deployment Guide
+    runs-on: ubuntu-latest
+    needs: build
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && secrets.FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER == ''
+    steps:
+      - name: Setup Guide
+        run: |
+          echo "## ℹ️ Build Successful — CI/CD Active" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Vite build and Oxlint verification passed with zero errors. 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To enable automatic Firebase deploy from GitHub Actions:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to [Firebase Console](https://console.firebase.google.com/project/cables-visualizer/settings/serviceaccounts/adminsdk) -> **Generate new private key**." >> $GITHUB_STEP_SUMMARY
+          echo "2. In GitHub repository: **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**." >> $GITHUB_STEP_SUMMARY
+          echo "3. **Name:** \`FIREBASE_SERVICE_ACCOUNT_CABLES_VISUALIZER\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Value:** Paste the contents of the generated JSON service account file." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Live hosting is actively running at: https://cables.web.app" >> $GITHUB_STEP_SUMMARY
