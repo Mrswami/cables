@@ -97,23 +97,60 @@ export default function App() {
     high: { target: 'reverse_spin', amount: 180, gate: 10, intensity: 130 }
   });
 
-  // Dedicated Visual Engine Parameters
+  // Dedicated Visual Engine Parameters (Engine-Specific & Tailored)
   const [params, setParams] = useState({
-    density: 8,
-    repetition: 6,
+    // Global & PostFX
     speed: 1.0,
-    grain: 20,
     bloom: 60,
     chroma: 40,
+    grain: 20,
     strobe: 0,
+    density: 8,
+    repetition: 6,
     wireframeDetail: 32,
     particleCount: 800,
-    particleLife: 1.0,
-    symmetryAngle: 60
+
+    // 1. Sacred Fractals
+    sacredRings: 8,
+    sacredPetals: 6,
+    sacredScale: 1.0,
+    sacredLineWidth: 2,
+
+    // 2. Hyperspace Tunnel
+    tunnelRings: 28,
+    tunnelSides: 6,
+    tunnelSpeed: 1.0,
+    tunnelCoreSize: 20,
+
+    // 3. Particle Swarm
+    particleSize: 3,
+    particleSwirl: 1.0,
+    filamentDistance: 140,
+
+    // 4. Cyber Wireframe
+    wireframeCols: 32,
+    wireframeRows: 18,
+    wireframeHeight: 180,
+    wireframeTilt: 15,
+
+    // 5. Glitch Matrix
+    matrixBands: 48,
+    glitchIntensity: 30,
+    scanlineSpeed: 1.0,
+    matrixSliceScale: 1.0,
+
+    // 6. Vector Oscilloscope
+    oscilloWidth: 3,
+    oscilloMirrors: 3,
+    oscilloHeight: 1.0,
+    oscilloSpread: 1.0
   });
 
   // Dynamic particle buffer state for particle engine
   const particlesRef = useRef([]);
+
+  // Previous frame band energy for decoupled, punchy transient detection per band
+  const prevBandsRef = useRef({ sub: 0, low: 0, mid: 0, high: 0 });
 
   // Mutable refs for zero-latency 60-120fps animation loop
   const stateRef = useRef({
@@ -403,13 +440,13 @@ export default function App() {
       // Intensity: flat output amplifier applied once gate clears (0-400% → 0-4x)
       const intensity = (route.intensity !== undefined ? Number(route.intensity) : 100) / 100;
 
-      // If signal does not pass threshold gate, output is zeroed
-      if (rawVal < gateThresh) return 0;
+      // If signal does not pass threshold gate, output is strictly zeroed
+      if (rawVal < gateThresh || rawVal <= 0.005) return 0;
 
       // activeRange: 0–1 representing how far above gate the signal is
       const activeRange = (rawVal - gateThresh) / (1 - gateThresh + 0.0001);
-      // Final output = how reactive (depth) × how loud (intensity)
-      return Math.min(8, activeRange * depth * intensity);
+      // Final output = activeRange × depth × intensity × masterGain
+      return Math.min(8, activeRange * depth * intensity * (currentBandValues.master || 1.0));
     };
 
     modSum += evalBand('sub');
@@ -447,17 +484,64 @@ export default function App() {
     const st = stateRef.current;
     st.time += 0.015 * st.params.speed;
 
-    // Calculate detailed frequency sub-bands with amplified dynamic curves
-    let subSum = 0, lowSum = 0, midSum = 0, highSum = 0;
-    for (let i = 0; i < 15; i++) subSum += freqData[i];       // 0 - 60 Hz Sub
-    for (let i = 15; i < 60; i++) lowSum += freqData[i];      // 60 - 250 Hz Bass
-    for (let i = 60; i < 350; i++) midSum += freqData[i];     // 250 - 2.5kHz Mids
-    for (let i = 350; i < 1024; i++) highSum += freqData[i];  // 2.5k - 20kHz Highs
+    // Calculate true isolated acoustic frequency sub-bands (FFT 2048 at ~48kHz = ~23.4Hz/bin):
+    // 1. Sub Bass: 20 Hz - 65 Hz (bins 1 to 3) - strictly kicks & sub drops, zero bleed
+    let subSum = 0, subMax = 0;
+    for (let i = 1; i <= 3; i++) {
+      const v = freqData[i] || 0;
+      subSum += v;
+      if (v > subMax) subMax = v;
+    }
+    const rawSub = (subSum / 3) / 255;
+    const subPunch = Math.max(0, rawSub - (prevBandsRef.current.sub || 0));
+    const subVal = Math.min(1, (Math.pow(rawSub, 1.1) * (st.subGain / 100) * 1.5) + (subPunch * 0.4));
 
-    const rawSub = (subSum / 15) / 255;
-    const rawLow = (lowSum / 45) / 255;
-    const rawMid = (midSum / 290) / 255;
-    const rawHigh = (highSum / 674) / 255;
+    // 2. Low / Bass: 65 Hz - 250 Hz (bins 4 to 11) - punchy kicks, basslines, 808 body
+    let lowSum = 0, lowMax = 0;
+    for (let i = 4; i <= 11; i++) {
+      const v = freqData[i] || 0;
+      lowSum += v;
+      if (v > lowMax) lowMax = v;
+    }
+    const rawLow = (lowSum / 8) / 255;
+    const lowPunch = Math.max(0, rawLow - (prevBandsRef.current.low || 0));
+    const lowVal = Math.min(1, (Math.pow(rawLow, 1.1) * (st.lowGain / 100) * 1.4) + (lowPunch * 0.35));
+
+    // 3. Mids / Vocals & Synths: 250 Hz - 2500 Hz (bins 12 to 108) - vocals, snares, synths
+    let midSum = 0;
+    for (let i = 12; i <= 108; i++) {
+      midSum += freqData[i] || 0;
+    }
+    const rawMid = (midSum / 97) / 255;
+    const midPunch = Math.max(0, rawMid - (prevBandsRef.current.mid || 0));
+    const midVal = Math.min(1, (Math.pow(rawMid, 1.0) * (st.midGain / 100) * 1.4) + (midPunch * 0.3));
+
+    // 4. Highs / Hi-Hats & Cymbals: 2500 Hz - 16000 Hz (bins 109 to 680) - hi-hats, air, sibilance
+    let highSum = 0, highMax = 0;
+    let highCount = 0;
+    for (let i = 109; i <= 680; i += 2) {
+      const v = freqData[i] || 0;
+      // High-shelf loudness weighting: compensate for natural 1/f spectral rolloff
+      const weight = 1 + ((i - 109) / (680 - 109)) * 1.8;
+      const weightedV = Math.min(255, v * weight);
+      highSum += weightedV;
+      if (weightedV > highMax) highMax = weightedV;
+      highCount++;
+    }
+    const avgHigh = (highSum / highCount) / 255;
+    const peakHigh = highMax / 255;
+    // Blend avg (35%) and peak (65%) so hi-hat transients spike clearly
+    const rawHigh = (avgHigh * 0.35) + (peakHigh * 0.65);
+    const highPunch = Math.max(0, rawHigh - (prevBandsRef.current.high || 0));
+    const highVal = Math.min(1, (rawHigh * (st.highGain / 100) * 1.5) + (highPunch * 0.4));
+
+    // Store current frame's raw band levels for next frame's decoupled punch detection
+    prevBandsRef.current = {
+      sub: rawSub,
+      low: rawLow,
+      mid: rawMid,
+      high: rawHigh
+    };
 
     // Fast non-allocating peak search (no array spreading or GC churn)
     let peakRaw = 0;
@@ -466,20 +550,11 @@ export default function App() {
     }
     const peak = peakRaw / 255;
 
-    // Instantaneous waveform energy (0ms latency, catches transient hits on the exact millisecond)
-    let waveTransientRaw = 0;
-    for (let i = 0; i < waveData.length; i += 8) {
-      const diff = Math.abs(waveData[i] - 128);
-      if (diff > waveTransientRaw) waveTransientRaw = diff;
-    }
-    const waveTransient = waveTransientRaw / 128; // 0 to 1
-
-    // Apply quadratic response curve + instantaneous 0ms transient punch for sub-millisecond sync
     const bands = {
-      sub: (Math.pow(rawSub, 1.2) * (st.subGain / 100) * 1.5) + (waveTransient * 0.25),
-      low: (Math.pow(rawLow, 1.2) * (st.lowGain / 100) * 1.4) + (waveTransient * 0.2),
-      mid: Math.pow(rawMid, 1.1) * (st.midGain / 100) * 1.3,
-      high: Math.pow(rawHigh, 1.0) * (st.highGain / 100) * 1.5,
+      sub: subVal,
+      low: lowVal,
+      mid: midVal,
+      high: highVal,
       master: (st.masterGain / 100)
     };
 
@@ -488,10 +563,10 @@ export default function App() {
     if (now - lastUiUpdateRef.current >= 33) {
       lastUiUpdateRef.current = now;
       setLevels({
-        sub: Math.min(1, bands.sub),
-        low: Math.min(1, bands.low),
-        mid: Math.min(1, bands.mid),
-        high: Math.min(1, bands.high),
+        sub: subVal,
+        low: lowVal,
+        mid: midVal,
+        high: highVal,
         peak
       });
     }
@@ -534,7 +609,7 @@ export default function App() {
 
     // Angular accumulation with bidirectional spin
     st.rot += 0.005 + spinDelta;
-    st.tunnelZ += (0.05 + warpMod * 0.4) * st.params.speed;
+    st.tunnelZ += (0.05 + warpMod * 0.4) * (st.activeEngine === 'tunnel' ? (st.params.tunnelSpeed || st.params.speed) : st.params.speed);
 
     // Palette Colors Lookup & Interpolator (with Hue Jump Modulation)
     const currentPal = PALETTES.find(p => p.id === st.activePalette) || PALETTES[0];
@@ -561,22 +636,52 @@ export default function App() {
       ctx.translate(cx, cy);
       ctx.rotate(st.rot);
 
-      const petals = Math.max(3, Math.round(st.params.repetition + kaleidoMod * 12 + bands.mid * 4));
-      const rings = Math.max(2, Math.round(st.params.density + shockMod * 8 + bands.low * 6));
-      const baseRadius = Math.min(W, H) * 0.28 * (1 + bands.sub * 0.75 + shockMod * 0.5);
+      const warpThrust = 1 + warpMod * 0.9;
+      const petals = Math.max(3, Math.round((st.params.sacredPetals || 6) + kaleidoMod * 16 + bands.mid * 4));
+      const rings = Math.max(2, Math.round((st.params.sacredRings || 8) + shockMod * 8 + bands.low * 6));
+      const baseRadius = Math.min(W, H) * 0.28 * (st.params.sacredScale || 1.0) * warpThrust * (1 + bands.sub * 0.75 + shockMod * 0.5);
+      const strokeW = (st.params.sacredLineWidth || 2) * (1 + massMod * 1.5);
+
+      // 3D Receding Warp Depth Portal (when warp_tunnel is modulated)
+      if (warpMod > 0.05) {
+        ctx.save();
+        for (let d = 3; d >= 1; d--) {
+          const depthScale = 1 + d * warpMod * 0.45;
+          ctx.strokeStyle = palColors[(d + colorOffset) % palColors.length];
+          ctx.lineWidth = 1 + warpMod * 2;
+          ctx.globalAlpha = 0.35 / d;
+          ctx.beginPath();
+          ctx.arc(0, 0, baseRadius * depthScale, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // Shockwave Pulse Explosion Ring (when shockwave is modulated)
+      if (shockMod > 0.08) {
+        ctx.save();
+        ctx.strokeStyle = palColors[colorOffset % palColors.length];
+        ctx.lineWidth = 2 + shockMod * 6;
+        ctx.shadowBlur = 24 * Math.min(bloomMod, 2);
+        ctx.shadowColor = palColors[colorOffset % palColors.length];
+        ctx.beginPath();
+        ctx.arc(0, 0, baseRadius * (1 + shockMod * 0.6), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
 
       for (let r = 1; r <= rings; r++) {
         const ringRad = (baseRadius / rings) * r * (1 + bands.low * 0.6);
         const col = palColors[(r - 1 + colorOffset) % palColors.length];
 
         ctx.strokeStyle = col;
-        ctx.lineWidth = (1.5 + bloomMod * 2.5) * (1 + bands.low * 0.5);
+        ctx.lineWidth = (strokeW + bloomMod * 2.5) * (1 + bands.low * 0.5);
         ctx.shadowBlur = 14 * Math.min(bloomMod, 2);
         ctx.shadowColor = col;
 
         for (let p = 0; p < petals; p++) {
           const angle = (p / petals) * Math.PI * 2;
-          const waveRipple = Math.sin(angle * 4 + st.time * 6) * (waveMod * 25);
+          const waveRipple = Math.sin(angle * 4 + st.time * 6) * (waveMod * 35);
           const px = Math.cos(angle) * (ringRad + waveRipple);
           const py = Math.sin(angle) * (ringRad + waveRipple);
           const petalRadius = (ringRad * 0.5) * (1 + bands.mid * 1.5 + massMod * 0.8);
@@ -586,12 +691,22 @@ export default function App() {
           ctx.stroke();
 
           // Laser Starburst filaments
-          if (laserMod > 0.1 || (r % 2 === 0 && bands.high > 0.12)) {
+          if (laserMod > 0.08 || (r % 2 === 0 && bands.high > 0.12)) {
             const innerCol = palColors[(r + 1 + colorOffset) % palColors.length];
             ctx.fillStyle = innerCol;
             ctx.beginPath();
-            ctx.arc(px, py, Math.max(1, petalRadius * (0.3 + (bands.high + laserMod) * 0.4)), 0, Math.PI * 2);
+            ctx.arc(px, py, Math.max(1, petalRadius * (0.3 + (bands.high + laserMod) * 0.5)), 0, Math.PI * 2);
             ctx.fill();
+
+            // Direct laser ray from center to petal
+            if (laserMod > 0.12 && p % 2 === 0) {
+              ctx.strokeStyle = innerCol;
+              ctx.lineWidth = 1 + laserMod * 2;
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+              ctx.lineTo(px, py);
+              ctx.stroke();
+            }
           }
         }
       }
@@ -606,8 +721,8 @@ export default function App() {
       ctx.translate(cx + bassShakeX, cy + bassShakeY);
       ctx.rotate(st.rot * 0.5 + (bands.mid * 0.2));
 
-      const tunnelRings = 28;
-      const sides = Math.max(3, Math.round(st.params.repetition + kaleidoMod * 8));
+      const tunnelRings = st.params.tunnelRings || 28;
+      const sides = Math.max(3, Math.round((st.params.tunnelSides || 6) + kaleidoMod * 8));
 
       // LAYER 1: HIGHS & LASER BEAMS
       if (bands.high > 0.08 || laserMod > 0.1) {
@@ -672,7 +787,8 @@ export default function App() {
       }
 
       // Center Singularity
-      const coreSize = (8 + (bands.sub + shockMod) * 40 + bands.low * 15) * (1 + bloomMod * 0.5);
+      const baseCore = st.params.tunnelCoreSize || 20;
+      const coreSize = (baseCore + (bands.sub + shockMod) * 40 + bands.low * 15) * (1 + bloomMod * 0.5);
       const coreCol = palColors[colorOffset % palColors.length];
       ctx.fillStyle = coreCol;
       ctx.shadowBlur = 25 * Math.min(bloomMod, 2);
@@ -697,13 +813,13 @@ export default function App() {
       const lowPulse = 1 + bands.low * 2.2 + massMod * 2.0;
 
       // Vortex angular speed with DIRECTIONAL REVERSE / FORWARD control!
-      // When reverse_spin is routed, particles vigorously whirl COUNTER-CLOCKWISE on hi-hat/frequency hits!
-      const vortexSpeed = (0.015 + spinDelta * 1.5 + bands.mid * 0.08);
+      const swirlFactor = st.params.particleSwirl || 1.0;
+      const vortexSpeed = (0.015 + spinDelta * 1.5 + bands.mid * 0.08) * swirlFactor;
       const waveFreq = st.time * 4 + (bands.mid + waveMod) * 8;
 
       // Highs & Laser filaments
       const highActive = bands.high > 0.15 || laserMod > 0.15;
-      const activeCount = Math.min(pts.length, Math.round(st.params.particleCount + massMod * 600 + (bands.high + laserMod) * 500));
+      const activeCount = Math.min(pts.length, Math.round((st.params.particleCount || 800) + massMod * 600 + (bands.high + laserMod) * 500));
 
       // 1. RADIAL SHOCKWAVE EXPLOSION
       if (subShockwave) {
@@ -737,6 +853,9 @@ export default function App() {
       }
 
       // 3. PARTICLE SIMULATION LOOP
+      const basePSize = st.params.particleSize || 3;
+      const maxFilamentDist = (st.params.filamentDistance || 140) + (bands.high + laserMod) * 120;
+
       for (let i = 0; i < activeCount; i++) {
         const p = pts[i];
 
@@ -777,7 +896,7 @@ export default function App() {
 
         if (screenX >= 0 && screenX < W && screenY >= 0 && screenY < H) {
           const sparkle = highActive ? (1 + Math.sin(i + st.time * 20) * (bands.high + laserMod) * 2.0) : 1;
-          const pSize = Math.max(1, p.size * k * (3.5 * lowPulse) * sparkle);
+          const pSize = Math.max(1, p.size * (basePSize / 3) * k * (3.5 * lowPulse) * sparkle);
 
           const colIndex = (i + colorOffset) % palColors.length;
           const col = palColors[colIndex];
@@ -791,6 +910,15 @@ export default function App() {
           ctx.arc(screenX, screenY, pSize, 0, Math.PI * 2);
           ctx.fill();
 
+          // Kaleidoscope Facet Reflections (when kaleido_facets is modulated)
+          if (kaleidoMod > 0.05 && i % 2 === 0) {
+            const mirX = cx - (p.x * k);
+            const mirY = cy - ((p.y + waveOffset) * k);
+            ctx.beginPath();
+            ctx.arc(mirX, mirY, pSize * 0.9, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
           // Lightning Constellation Filaments
           if (highActive && i % 4 === 0 && i < activeCount - 1) {
             const nextP = pts[i + 1];
@@ -799,10 +927,10 @@ export default function App() {
             const nextScreenY = cy + (nextP.y + waveOffset) * nextK;
             const filamentDist = Math.hypot(screenX - nextScreenX, screenY - nextScreenY);
 
-            if (filamentDist < 140 + (bands.high + laserMod) * 120) {
+            if (filamentDist < maxFilamentDist) {
               ctx.strokeStyle = col;
               ctx.lineWidth = 1 + (bands.high + laserMod) * 2;
-              ctx.globalAlpha = Math.min(0.85, (1 - filamentDist / 260) * (bands.high + laserMod));
+              ctx.globalAlpha = Math.min(0.85, (1 - filamentDist / (maxFilamentDist * 1.8)) * (bands.high + laserMod));
               ctx.beginPath();
               ctx.moveTo(screenX, screenY);
               ctx.lineTo(nextScreenX, nextScreenY);
@@ -820,12 +948,15 @@ export default function App() {
     else if (st.activeEngine === 'wireframe') {
       ctx.save();
       ctx.translate(cx, cy * 1.15);
-      const rows = 18;
-      const cols = Math.max(16, Math.round((st.params.wireframeDetail || 32) + kaleidoMod * 16));
+      const rows = st.params.wireframeRows || 18;
+      const cols = Math.max(16, Math.round((st.params.wireframeCols || 32) + kaleidoMod * 16));
       const gridW = W * (1.2 + shockMod * 0.4);
       const gridH = H * (0.8 + warpMod * 0.5);
+      const tiltDeg = st.params.wireframeTilt !== undefined ? st.params.wireframeTilt : 15;
+      const tiltRad = (tiltDeg * Math.PI) / 180;
+      const baseHeight = st.params.wireframeHeight || 180;
 
-      ctx.rotate(Math.PI * 0.15 + (spinDelta * 3)); // Isometric camera angle + spin
+      ctx.rotate(tiltRad + (spinDelta * 3)); // Isometric camera angle + spin
 
       for (let r = 0; r < rows; r++) {
         const zRatio = (r / rows);
@@ -843,7 +974,7 @@ export default function App() {
           const freqIndex = Math.floor((c / cols) * freqData.length * 0.4);
           const waveElev = Math.sin(c * 0.4 + st.time * 6) * (waveMod * 60);
           const shockElev = Math.cos(r * 0.5 - st.time * 4) * (shockMod * 50);
-          const elev = ((freqData[freqIndex] || 0) / 255) * (180 * bands.master * (1 + bands.low * 1.5)) * Math.sin(c * 0.2 + st.time * 3) + waveElev + shockElev;
+          const elev = ((freqData[freqIndex] || 0) / 255) * (baseHeight * bands.master * (1 + bands.low * 1.5)) * Math.sin(c * 0.2 + st.time * 3) + waveElev + shockElev;
           const py = rowY - elev;
 
           c === 0 ? ctx.moveTo(colX, py) : ctx.lineTo(colX, py);
@@ -866,14 +997,18 @@ export default function App() {
     // --- ENGINE 5: GLITCH MATRIX & DATA SORTING ---
     else if (st.activeEngine === 'cyber') {
       ctx.save();
-      const bandsCount = Math.max(24, Math.round(48 + kaleidoMod * 24));
+      const baseBands = st.params.matrixBands || 48;
+      const bandsCount = Math.max(16, Math.round(baseBands + kaleidoMod * 24));
       const cellW = W / bandsCount;
+      const sliceScale = st.params.matrixSliceScale || 1.0;
+      const glitchChance = ((st.params.glitchIntensity ?? 30) / 100) * (0.15 + (bands.sub + shockMod) * 0.4);
+      const scanSpeed = st.params.scanlineSpeed || 1.0;
 
       for (let i = 0; i < bandsCount; i++) {
         const binVal = ((freqData[Math.floor(i * (freqData.length / bandsCount))] || 0) / 255);
         const waveH = Math.sin(i * 0.3 + st.time * 5) * (waveMod * 80);
-        const sliceH = Math.max(4, (binVal * H * (1 + bands.mid * 1.5) + waveH) * (1 + massMod * 0.8));
-        const isGlitch = Math.random() < (0.05 + (bands.sub + shockMod) * 0.4);
+        const sliceH = Math.max(4, (binVal * H * sliceScale * (1 + bands.mid * 1.5) + waveH) * (1 + massMod * 0.8));
+        const isGlitch = Math.random() < glitchChance;
 
         const xShift = spinDelta * 300;
         const x = (i * cellW + xShift + W) % W;
@@ -888,7 +1023,7 @@ export default function App() {
         // Cyber scanlines & Laser Streaks
         if (i % 2 === 0 || laserMod > 0.2) {
           ctx.fillStyle = palColors[(i + 1 + colorOffset) % palColors.length];
-          const scanY = (y + st.time * (100 + warpMod * 200)) % H;
+          const scanY = (y + st.time * (100 + warpMod * 200) * scanSpeed) % H;
           ctx.fillRect(x, scanY, Math.max(1, cellW - 2), (2 + laserMod * 4));
         }
       }
@@ -899,10 +1034,13 @@ export default function App() {
     else if (st.activeEngine === 'bars') {
       ctx.save();
       const numPoints = waveData.length;
-      const step = W / numPoints;
+      const spread = st.params.oscilloSpread || 1.0;
+      const step = (W / numPoints) * spread;
+      const traceWidth = st.params.oscilloWidth || 3;
+      const ampHeight = st.params.oscilloHeight || 1.0;
 
       ctx.strokeStyle = c0;
-      ctx.lineWidth = (3 + bloomMod * 2 + massMod * 3);
+      ctx.lineWidth = (traceWidth + bloomMod * 2 + massMod * 3);
       ctx.shadowBlur = (15 + laserMod * 15) * Math.min(bloomMod, 2);
       ctx.shadowColor = c0;
 
@@ -911,22 +1049,23 @@ export default function App() {
         const v = ((waveData[i] || 128) / 128.0) - 1.0;
         const waveDisplace = Math.sin(i * 0.05 + st.time * 8) * (waveMod * 50);
         const shockDisplace = (Math.random() - 0.5) * (shockMod * 40);
-        const y = cy + (v * (H * 0.4) * (1 + bands.low + bands.sub * 1.5 + warpMod) + waveDisplace + shockDisplace);
+        const y = cy + (v * (H * 0.4 * ampHeight) * (1 + bands.low + bands.sub * 1.5 + warpMod) + waveDisplace + shockDisplace);
         const x = (i * step + (spinDelta * 200) + W) % W;
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       ctx.stroke();
 
       // Mirrored Harmonic reflection & Kaleidoscope Multiplier
-      const mirCount = Math.max(1, Math.round(1 + kaleidoMod * 3));
+      const baseMirrors = st.params.oscilloMirrors || 3;
+      const mirCount = Math.max(1, Math.round(baseMirrors + kaleidoMod * 3));
       for (let m = 1; m <= mirCount; m++) {
         ctx.strokeStyle = palColors[(m + colorOffset) % palColors.length];
-        ctx.lineWidth = 1.5 + laserMod * 1.5;
+        ctx.lineWidth = Math.max(1, (traceWidth * 0.5) + laserMod * 1.5);
         ctx.beginPath();
         for (let i = 0; i < numPoints; i += (m > 1 ? 2 : 1)) {
           const v = ((waveData[i] || 128) / 128.0) - 1.0;
-          const y = cy - (v * (H * (0.3 / m)) * (1 + bands.high * 1.5));
-          const x = i * step;
+          const y = cy - (v * (H * (0.3 / m) * ampHeight) * (1 + bands.high * 1.5));
+          const x = (i * step) % W;
           i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
         ctx.stroke();
@@ -987,6 +1126,9 @@ export default function App() {
       setIsFullscreen(false);
     }
   };
+
+  const activeEngineObj = ENGINES.find(e => e.id === activeEngine) || ENGINES[0];
+  const ActiveEngineIcon = activeEngineObj.icon;
 
   return (
     <div className={`daw-layout ${isFullscreen ? 'fullscreen-mode' : ''}`}>
@@ -1180,12 +1322,17 @@ export default function App() {
           {activeTab === 'matrix' && (
             <div className="rack-device-grid">
               {/* SUB BASS STRIP */}
-              <div className={`device-channel ${levels.sub >= (modMatrix.sub.gate || 0) / 100 && levels.sub > 0.02 ? 'gate-triggered' : ''}`}>
-                <div className="channel-banner" style={{ backgroundColor: '#ff0055' }}>Sub Bass (0–60Hz)</div>
+              <div className={`device-channel ${levels.sub >= ((modMatrix.sub.gate ?? 0) / 100) && levels.sub > 0.02 ? 'gate-triggered' : ''}`}>
+                <div className="channel-banner" style={{ backgroundColor: '#ff0055' }}>
+                  <span>Sub Bass (20–65Hz)</span>
+                  <span className={`gate-status-tag ${levels.sub >= ((modMatrix.sub.gate ?? 0) / 100) && levels.sub > 0.02 ? 'active' : ''}`}>
+                    {levels.sub >= ((modMatrix.sub.gate ?? 0) / 100) && levels.sub > 0.02 ? 'OPEN' : 'GATE'}
+                  </span>
+                </div>
                 <div className="channel-body">
-                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.sub.gate || 0}%`}>
-                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.sub.gate || 0}%` }}></div>
-                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.sub * (subGain / 100) * 100)}%`, backgroundColor: '#ff0055' }}></div>
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.sub.gate ?? 0}% (Level: ${Math.round(levels.sub * 100)}%)`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.sub.gate ?? 0}%` }}></div>
+                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.sub * 100)}%`, backgroundColor: '#ff0055' }}></div>
                   </div>
                   <div className="control-column">
                     <span className="strip-title">Gain</span>
@@ -1213,7 +1360,7 @@ export default function App() {
                         type="range" min="0" max="90" value={modMatrix.sub.gate ?? 0}
                         onChange={e => handleMatrixChange('sub', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
-                        title="Noise / Trigger Gate Threshold"
+                        title="Noise / Trigger Gate Threshold: signal below this is strictly muted"
                       />
                       <span>{modMatrix.sub.gate ?? 0}%</span>
                     </div>
@@ -1242,12 +1389,17 @@ export default function App() {
               </div>
 
               {/* LOW BASS STRIP */}
-              <div className={`device-channel ${levels.low >= (modMatrix.low.gate ?? 0) / 100 && levels.low > 0.02 ? 'gate-triggered' : ''}`}>
-                <div className="channel-banner" style={{ backgroundColor: '#ff9900' }}>Low / Kick (60–250Hz)</div>
+              <div className={`device-channel ${levels.low >= ((modMatrix.low.gate ?? 0) / 100) && levels.low > 0.02 ? 'gate-triggered' : ''}`}>
+                <div className="channel-banner" style={{ backgroundColor: '#ff9900' }}>
+                  <span>Low / Kick (65–250Hz)</span>
+                  <span className={`gate-status-tag ${levels.low >= ((modMatrix.low.gate ?? 0) / 100) && levels.low > 0.02 ? 'active' : ''}`}>
+                    {levels.low >= ((modMatrix.low.gate ?? 0) / 100) && levels.low > 0.02 ? 'OPEN' : 'GATE'}
+                  </span>
+                </div>
                 <div className="channel-body">
-                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.low.gate ?? 0}%`}>
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.low.gate ?? 0}% (Level: ${Math.round(levels.low * 100)}%)`}>
                     <div className="meter-gate-line" style={{ bottom: `${modMatrix.low.gate ?? 0}%` }}></div>
-                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.low * (lowGain / 100) * 100)}%`, backgroundColor: '#ff9900' }}></div>
+                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.low * 100)}%`, backgroundColor: '#ff9900' }}></div>
                   </div>
                   <div className="control-column">
                     <span className="strip-title">Gain</span>
@@ -1275,7 +1427,7 @@ export default function App() {
                         type="range" min="0" max="90" value={modMatrix.low.gate ?? 0}
                         onChange={e => handleMatrixChange('low', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
-                        title="Noise / Trigger Gate Threshold"
+                        title="Noise / Trigger Gate Threshold: signal below this is strictly muted"
                       />
                       <span>{modMatrix.low.gate ?? 0}%</span>
                     </div>
@@ -1304,12 +1456,17 @@ export default function App() {
               </div>
 
               {/* MIDS STRIP */}
-              <div className={`device-channel ${levels.mid >= (modMatrix.mid.gate ?? 0) / 100 && levels.mid > 0.02 ? 'gate-triggered' : ''}`}>
-                <div className="channel-banner" style={{ backgroundColor: '#00ffcc' }}>Mids / Vocal (250–2.5kHz)</div>
+              <div className={`device-channel ${levels.mid >= ((modMatrix.mid.gate ?? 0) / 100) && levels.mid > 0.02 ? 'gate-triggered' : ''}`}>
+                <div className="channel-banner" style={{ backgroundColor: '#00ffcc', color: '#000' }}>
+                  <span>Mids / Lead (250–2.5kHz)</span>
+                  <span className={`gate-status-tag ${levels.mid >= ((modMatrix.mid.gate ?? 0) / 100) && levels.mid > 0.02 ? 'active' : ''}`}>
+                    {levels.mid >= ((modMatrix.mid.gate ?? 0) / 100) && levels.mid > 0.02 ? 'OPEN' : 'GATE'}
+                  </span>
+                </div>
                 <div className="channel-body">
-                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.mid.gate ?? 0}%`}>
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.mid.gate ?? 0}% (Level: ${Math.round(levels.mid * 100)}%)`}>
                     <div className="meter-gate-line" style={{ bottom: `${modMatrix.mid.gate ?? 0}%` }}></div>
-                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.mid * (midGain / 100) * 100)}%`, backgroundColor: '#00ffcc' }}></div>
+                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.mid * 100)}%`, backgroundColor: '#00ffcc' }}></div>
                   </div>
                   <div className="control-column">
                     <span className="strip-title">Gain</span>
@@ -1337,7 +1494,7 @@ export default function App() {
                         type="range" min="0" max="90" value={modMatrix.mid.gate ?? 0}
                         onChange={e => handleMatrixChange('mid', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
-                        title="Noise / Trigger Gate Threshold"
+                        title="Noise / Trigger Gate Threshold: signal below this is strictly muted"
                       />
                       <span>{modMatrix.mid.gate ?? 0}%</span>
                     </div>
@@ -1366,12 +1523,17 @@ export default function App() {
               </div>
 
               {/* HIGHS STRIP */}
-              <div className={`device-channel ${levels.high >= (modMatrix.high.gate ?? 0) / 100 && levels.high > 0.02 ? 'gate-triggered' : ''}`}>
-                <div className="channel-banner" style={{ backgroundColor: '#a855f7' }}>Highs / Hi-Hat (2.5k–20kHz)</div>
+              <div className={`device-channel ${levels.high >= ((modMatrix.high.gate ?? 0) / 100) && levels.high > 0.02 ? 'gate-triggered' : ''}`}>
+                <div className="channel-banner" style={{ backgroundColor: '#a855f7' }}>
+                  <span>Highs / Hi-Hat (2.5k–16kHz)</span>
+                  <span className={`gate-status-tag ${levels.high >= ((modMatrix.high.gate ?? 0) / 100) && levels.high > 0.02 ? 'active' : ''}`}>
+                    {levels.high >= ((modMatrix.high.gate ?? 0) / 100) && levels.high > 0.02 ? 'OPEN' : 'GATE'}
+                  </span>
+                </div>
                 <div className="channel-body">
-                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.high.gate ?? 0}%`}>
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.high.gate ?? 0}% (Level: ${Math.round(levels.high * 100)}%)`}>
                     <div className="meter-gate-line" style={{ bottom: `${modMatrix.high.gate ?? 0}%` }}></div>
-                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.high * (highGain / 100) * 100)}%`, backgroundColor: '#a855f7' }}></div>
+                    <div className="meter-bar" style={{ height: `${Math.min(100, levels.high * 100)}%`, backgroundColor: '#a855f7' }}></div>
                   </div>
                   <div className="control-column">
                     <span className="strip-title">Gain</span>
@@ -1399,7 +1561,7 @@ export default function App() {
                         type="range" min="0" max="90" value={modMatrix.high.gate ?? 0}
                         onChange={e => handleMatrixChange('high', 'gate', Number(e.target.value))}
                         className="fader-mini gate-slider"
-                        title="Noise / Trigger Gate Threshold"
+                        title="Noise / Trigger Gate Threshold: signal below this is strictly muted"
                       />
                       <span>{modMatrix.high.gate ?? 0}%</span>
                     </div>
@@ -1448,60 +1610,322 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 2: DEDICATED ENGINE PARAMETERS */}
+          {/* TAB 2: DEDICATED ENGINE PARAMETERS (UNIQUE PER EFFECT TYPE) */}
           {activeTab === 'engine' && (
-            <div className="rack-params-grid">
-              <div className="param-device-box">
-                <h4>Geometric Density & Complexity</h4>
-                <div className="param-slider-row">
-                  <label>Rings / Layers:</label>
-                  <input
-                    type="range" min="2" max="24" value={params.density}
-                    onChange={e => setParams({ ...params, density: Number(e.target.value) })}
-                  />
-                  <span>{params.density}</span>
+            <div className="engine-parameters-view">
+              {/* TOP ENGINE SWITCHER & STATUS BANNER */}
+              <div className="engine-nav-banner">
+                <div className="engine-nav-info">
+                  <div className="engine-nav-badge">
+                    <span className="engine-live-dot"></span>
+                    ACTIVE ENGINE
+                  </div>
+                  <div className="engine-nav-title">
+                    <ActiveEngineIcon />
+                    <h3>{activeEngineObj.name}</h3>
+                  </div>
+                  <p className="engine-nav-desc">{activeEngineObj.desc}</p>
                 </div>
-                <div className="param-slider-row">
-                  <label>Symmetry Repeat:</label>
-                  <input
-                    type="range" min="3" max="32" value={params.repetition}
-                    onChange={e => setParams({ ...params, repetition: Number(e.target.value) })}
-                  />
-                  <span>{params.repetition}x</span>
+
+                <div className="engine-pills-row" role="tablist" aria-label="Select Engine Preset">
+                  {ENGINES.map(eng => {
+                    const IconComp = eng.icon;
+                    const isSelected = activeEngine === eng.id;
+                    return (
+                      <button
+                        key={eng.id}
+                        id={`btn-engine-switch-${eng.id}`}
+                        className={`engine-pill-btn ${isSelected ? 'active' : ''}`}
+                        onClick={() => setActiveEngine(eng.id)}
+                        title={eng.desc}
+                      >
+                        <IconComp />
+                        <span>{eng.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="param-device-box">
-                <h4>Particles & Velocity</h4>
-                <div className="param-slider-row">
-                  <label>Particle Count:</label>
-                  <input
-                    type="range" min="100" max="1500" step="50" value={params.particleCount}
-                    onChange={e => setParams({ ...params, particleCount: Number(e.target.value) })}
-                  />
-                  <span>{params.particleCount}</span>
-                </div>
-                <div className="param-slider-row">
-                  <label>Global Speed Rate:</label>
-                  <input
-                    type="range" min="0.2" max="3.0" step="0.1" value={params.speed}
-                    onChange={e => setParams({ ...params, speed: Number(e.target.value) })}
-                  />
-                  <span>{params.speed.toFixed(1)}x</span>
-                </div>
-              </div>
+              {/* UNIQUE PARAMETERS PER ENGINE */}
+              {activeEngine === 'sacred' && (
+                <div className="rack-params-grid">
+                  <div className="param-device-box">
+                    <h4>Mandala Geometry & Harmonics</h4>
+                    <div className="param-slider-row">
+                      <label>Concentric Rings:</label>
+                      <input
+                        type="range" min="2" max="24" step="1" value={params.sacredRings ?? 8}
+                        onChange={e => setParams({ ...params, sacredRings: Number(e.target.value) })}
+                      />
+                      <span>{params.sacredRings ?? 8} rings</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Petal Symmetry:</label>
+                      <input
+                        type="range" min="3" max="24" step="1" value={params.sacredPetals ?? 6}
+                        onChange={e => setParams({ ...params, sacredPetals: Number(e.target.value) })}
+                      />
+                      <span>{params.sacredPetals ?? 6} petals</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Radial Scale:</label>
+                      <input
+                        type="range" min="0.4" max="2.5" step="0.1" value={params.sacredScale ?? 1.0}
+                        onChange={e => setParams({ ...params, sacredScale: Number(e.target.value) })}
+                      />
+                      <span>{(params.sacredScale ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                  </div>
 
-              <div className="param-device-box">
-                <h4>Wireframe Topology</h4>
-                <div className="param-slider-row">
-                  <label>Mesh Resolution:</label>
-                  <input
-                    type="range" min="16" max="64" step="4" value={params.wireframeDetail}
-                    onChange={e => setParams({ ...params, wireframeDetail: Number(e.target.value) })}
-                  />
-                  <span>{params.wireframeDetail} cols</span>
+                  <div className="param-device-box">
+                    <h4>Stroke Dynamics & Rotation</h4>
+                    <div className="param-slider-row">
+                      <label>Stroke Width:</label>
+                      <input
+                        type="range" min="1" max="8" step="1" value={params.sacredLineWidth ?? 2}
+                        onChange={e => setParams({ ...params, sacredLineWidth: Number(e.target.value) })}
+                      />
+                      <span>{params.sacredLineWidth ?? 2}px</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Rotation Velocity:</label>
+                      <input
+                        type="range" min="0.2" max="3.0" step="0.1" value={params.speed ?? 1.0}
+                        onChange={e => setParams({ ...params, speed: Number(e.target.value) })}
+                      />
+                      <span>{(params.speed ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {activeEngine === 'tunnel' && (
+                <div className="rack-params-grid">
+                  <div className="param-device-box">
+                    <h4>Warp Geometry & Depth</h4>
+                    <div className="param-slider-row">
+                      <label>Ring Depth Layers:</label>
+                      <input
+                        type="range" min="10" max="60" step="2" value={params.tunnelRings ?? 28}
+                        onChange={e => setParams({ ...params, tunnelRings: Number(e.target.value) })}
+                      />
+                      <span>{params.tunnelRings ?? 28} rings</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Polygon Facets:</label>
+                      <input
+                        type="range" min="3" max="16" step="1" value={params.tunnelSides ?? 6}
+                        onChange={e => setParams({ ...params, tunnelSides: Number(e.target.value) })}
+                      />
+                      <span>{params.tunnelSides ?? 6} sides ({
+                        params.tunnelSides === 3 ? 'Tri' :
+                        params.tunnelSides === 4 ? 'Square' :
+                        params.tunnelSides === 5 ? 'Penta' :
+                        params.tunnelSides === 6 ? 'Hex' :
+                        params.tunnelSides === 8 ? 'Octa' :
+                        (params.tunnelSides ?? 6) >= 12 ? 'Cylinder' : 'Poly'
+                      })</span>
+                    </div>
+                  </div>
+
+                  <div className="param-device-box">
+                    <h4>Warp Dynamics & Singularity</h4>
+                    <div className="param-slider-row">
+                      <label>Warp Speed Factor:</label>
+                      <input
+                        type="range" min="0.2" max="3.0" step="0.1" value={params.tunnelSpeed ?? 1.0}
+                        onChange={e => setParams({ ...params, tunnelSpeed: Number(e.target.value) })}
+                      />
+                      <span>{(params.tunnelSpeed ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Singularity Core:</label>
+                      <input
+                        type="range" min="5" max="60" step="5" value={params.tunnelCoreSize ?? 20}
+                        onChange={e => setParams({ ...params, tunnelCoreSize: Number(e.target.value) })}
+                      />
+                      <span>{params.tunnelCoreSize ?? 20}px</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeEngine === 'particles' && (
+                <div className="rack-params-grid">
+                  <div className="param-device-box">
+                    <h4>Particle Cloud Density</h4>
+                    <div className="param-slider-row">
+                      <label>Particle Count:</label>
+                      <input
+                        type="range" min="100" max="1500" step="50" value={params.particleCount ?? 800}
+                        onChange={e => setParams({ ...params, particleCount: Number(e.target.value) })}
+                      />
+                      <span>{params.particleCount ?? 800}</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Stardust Grain Size:</label>
+                      <input
+                        type="range" min="1" max="8" step="1" value={params.particleSize ?? 3}
+                        onChange={e => setParams({ ...params, particleSize: Number(e.target.value) })}
+                      />
+                      <span>{params.particleSize ?? 3}px</span>
+                    </div>
+                  </div>
+
+                  <div className="param-device-box">
+                    <h4>Fluid Dynamics & Filaments</h4>
+                    <div className="param-slider-row">
+                      <label>Vortex Swirl Rate:</label>
+                      <input
+                        type="range" min="0.2" max="3.0" step="0.1" value={params.particleSwirl ?? 1.0}
+                        onChange={e => setParams({ ...params, particleSwirl: Number(e.target.value) })}
+                      />
+                      <span>{(params.particleSwirl ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Filament Distance:</label>
+                      <input
+                        type="range" min="50" max="300" step="10" value={params.filamentDistance ?? 140}
+                        onChange={e => setParams({ ...params, filamentDistance: Number(e.target.value) })}
+                      />
+                      <span>{params.filamentDistance ?? 140}px</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeEngine === 'wireframe' && (
+                <div className="rack-params-grid">
+                  <div className="param-device-box">
+                    <h4>Terrain Mesh Topology</h4>
+                    <div className="param-slider-row">
+                      <label>Mesh Columns:</label>
+                      <input
+                        type="range" min="16" max="64" step="4" value={params.wireframeCols ?? 32}
+                        onChange={e => setParams({ ...params, wireframeCols: Number(e.target.value) })}
+                      />
+                      <span>{params.wireframeCols ?? 32} cols</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Terrain Rows:</label>
+                      <input
+                        type="range" min="8" max="36" step="2" value={params.wireframeRows ?? 18}
+                        onChange={e => setParams({ ...params, wireframeRows: Number(e.target.value) })}
+                      />
+                      <span>{params.wireframeRows ?? 18} rows</span>
+                    </div>
+                  </div>
+
+                  <div className="param-device-box">
+                    <h4>Elevation & Camera Geometry</h4>
+                    <div className="param-slider-row">
+                      <label>Bass Elevation:</label>
+                      <input
+                        type="range" min="60" max="350" step="10" value={params.wireframeHeight ?? 180}
+                        onChange={e => setParams({ ...params, wireframeHeight: Number(e.target.value) })}
+                      />
+                      <span>{params.wireframeHeight ?? 180}px</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Isometric Camera Tilt:</label>
+                      <input
+                        type="range" min="0" max="45" step="1" value={params.wireframeTilt ?? 15}
+                        onChange={e => setParams({ ...params, wireframeTilt: Number(e.target.value) })}
+                      />
+                      <span>{params.wireframeTilt ?? 15}°</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeEngine === 'cyber' && (
+                <div className="rack-params-grid">
+                  <div className="param-device-box">
+                    <h4>Matrix Column Slices</h4>
+                    <div className="param-slider-row">
+                      <label>Column Bands:</label>
+                      <input
+                        type="range" min="16" max="96" step="4" value={params.matrixBands ?? 48}
+                        onChange={e => setParams({ ...params, matrixBands: Number(e.target.value) })}
+                      />
+                      <span>{params.matrixBands ?? 48} bands</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Data Slice Scale:</label>
+                      <input
+                        type="range" min="0.5" max="3.0" step="0.1" value={params.matrixSliceScale ?? 1.0}
+                        onChange={e => setParams({ ...params, matrixSliceScale: Number(e.target.value) })}
+                      />
+                      <span>{(params.matrixSliceScale ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                  </div>
+
+                  <div className="param-device-box">
+                    <h4>Artifact Distortion & Scanlines</h4>
+                    <div className="param-slider-row">
+                      <label>Glitch Jitter Rate:</label>
+                      <input
+                        type="range" min="0" max="100" step="5" value={params.glitchIntensity ?? 30}
+                        onChange={e => setParams({ ...params, glitchIntensity: Number(e.target.value) })}
+                      />
+                      <span>{params.glitchIntensity ?? 30}%</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Scanline Velocity:</label>
+                      <input
+                        type="range" min="0.2" max="3.0" step="0.1" value={params.scanlineSpeed ?? 1.0}
+                        onChange={e => setParams({ ...params, scanlineSpeed: Number(e.target.value) })}
+                      />
+                      <span>{(params.scanlineSpeed ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeEngine === 'bars' && (
+                <div className="rack-params-grid">
+                  <div className="param-device-box">
+                    <h4>Oscilloscope Wave Trace</h4>
+                    <div className="param-slider-row">
+                      <label>Trace Line Width:</label>
+                      <input
+                        type="range" min="1" max="10" step="1" value={params.oscilloWidth ?? 3}
+                        onChange={e => setParams({ ...params, oscilloWidth: Number(e.target.value) })}
+                      />
+                      <span>{params.oscilloWidth ?? 3}px</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Wave Amplitude:</label>
+                      <input
+                        type="range" min="0.3" max="2.5" step="0.1" value={params.oscilloHeight ?? 1.0}
+                        onChange={e => setParams({ ...params, oscilloHeight: Number(e.target.value) })}
+                      />
+                      <span>{(params.oscilloHeight ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                  </div>
+
+                  <div className="param-device-box">
+                    <h4>Harmonics & Frequency Spread</h4>
+                    <div className="param-slider-row">
+                      <label>Harmonic Mirrors:</label>
+                      <input
+                        type="range" min="1" max="8" step="1" value={params.oscilloMirrors ?? 3}
+                        onChange={e => setParams({ ...params, oscilloMirrors: Number(e.target.value) })}
+                      />
+                      <span>{params.oscilloMirrors ?? 3} mirrors</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Frequency Spread:</label>
+                      <input
+                        type="range" min="0.5" max="2.0" step="0.1" value={params.oscilloSpread ?? 1.0}
+                        onChange={e => setParams({ ...params, oscilloSpread: Number(e.target.value) })}
+                      />
+                      <span>{(params.oscilloSpread ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

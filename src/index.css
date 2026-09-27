@@ -529,13 +529,32 @@ body {
   font-size: 10px;
   font-weight: 700;
   color: #000;
-  padding: 4px 6px;
-  text-align: center;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.gate-status-tag {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.6px;
+  transition: all 0.08s ease;
+}
+
+.gate-status-tag.active {
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 0 8px #ffffff;
 }
 
 .channel-body {
@@ -716,6 +735,124 @@ body {
 }
 .mod-depth-row:has(.intensity-slider) {
   color: #39ff14;
+}
+
+/* TAB 2: DEDICATED ENGINE PARAMETERS VIEW */
+.engine-parameters-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.engine-nav-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 10px 14px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.engine-nav-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 220px;
+}
+
+.engine-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+}
+
+.engine-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 6px var(--accent-cyan);
+  animation: pulse-dot 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.engine-nav-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.engine-nav-title svg {
+  color: var(--accent-purple);
+  width: 16px;
+  height: 16px;
+}
+
+.engine-nav-title h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-active);
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+.engine-nav-desc {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.engine-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.engine-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-panel-light);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.engine-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-active);
+}
+
+.engine-pill-btn.active {
+  background: rgba(121, 40, 202, 0.25);
+  border-color: var(--accent-purple);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(121, 40, 202, 0.35);
+}
+
+.engine-pill-btn.active svg {
+  color: var(--accent-cyan);
 }
 
 /* TAB 2 & 4: PARAMETERS & POST FX GRID */
