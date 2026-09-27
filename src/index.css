@@ -546,10 +546,12 @@ body {
 }
 
 .meter-container {
-  width: 8px;
-  background: #000;
+  width: 10px;
+  height: 85px;
+  background: #050508;
   border-radius: 3px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
   display: flex;
   align-items: flex-end;
   border: 1px solid var(--border-light);
@@ -558,7 +560,43 @@ body {
 
 .meter-bar {
   width: 100%;
+  border-radius: 2px 2px 0 0;
   transition: height 0.04s ease;
+}
+
+/* Interactive VU Meter Gate Threshold Line */
+.meter-gate-line {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 2px;
+  background: #ffffff;
+  box-shadow: 0 0 6px #ffffff, 0 0 2px #00f0ff;
+  pointer-events: none;
+  z-index: 5;
+  transition: bottom 0.08s ease;
+}
+
+.meter-gate-line::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  top: -2px;
+  width: 0;
+  height: 0;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-right: 4px solid #ffffff;
+}
+
+/* Active Trigger Glow on Breach */
+.device-channel.gate-triggered {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+}
+
+.device-channel.gate-triggered .channel-banner {
+  filter: brightness(1.2);
 }
 
 .control-column {

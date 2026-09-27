@@ -3,22 +3,22 @@ import './index.css';
 
 // --- ICONS ---
 const Icons = {
-  Play: () => <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M8 5v14l11-7z"/></svg>,
-  Stop: () => <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M6 6h12v12H6z"/></svg>,
-  Mic: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
-  Monitor: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
-  Expand: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>,
-  Sparkles: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>,
-  Tunnel: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
-  Sacred: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><circle cx="12" cy="12" r="5"/></svg>,
-  Wireframe: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="M2 17 12 22 22 17"/><path d="M2 12 12 17 22 12"/><path d="M2 7 12 12 22 7"/><path d="M12 2 2 7l10 5 10-5-10-5z"/></svg>,
-  Cyber: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>,
-  Oscillo: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><polyline points="2 12 6 12 9 4 15 20 18 12 22 12"/></svg>,
-  Sliders: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>,
-  Palette: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>,
-  Fx: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="12" cy="12" r="9"/><path d="M10 8h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-5"/><path d="M10 12h4"/><path d="M10 16h4"/></svg>,
-  Matrix: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>,
-  Eye: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+  Play: () => <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M8 5v14l11-7z" /></svg>,
+  Stop: () => <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M6 6h12v12H6z" /></svg>,
+  Mic: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>,
+  Monitor: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>,
+  Expand: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>,
+  Sparkles: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" /></svg>,
+  Tunnel: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>,
+  Sacred: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" /><circle cx="12" cy="12" r="5" /></svg>,
+  Wireframe: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><path d="M2 17 12 22 22 17" /><path d="M2 12 12 17 22 12" /><path d="M2 7 12 12 22 7" /><path d="M12 2 2 7l10 5 10-5-10-5z" /></svg>,
+  Cyber: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="2" y="2" width="20" height="8" rx="2" /><rect x="2" y="14" width="20" height="8" rx="2" /><line x1="6" y1="6" x2="6.01" y2="6" /><line x1="6" y1="18" x2="6.01" y2="18" /></svg>,
+  Oscillo: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><polyline points="2 12 6 12 9 4 15 20 18 12 22 12" /></svg>,
+  Sliders: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>,
+  Palette: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" /></svg>,
+  Fx: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><circle cx="12" cy="12" r="9" /><path d="M10 8h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-5" /><path d="M10 12h4" /><path d="M10 16h4" /></svg>,
+  Matrix: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" /><path d="M15 3v18" /></svg>,
+  Eye: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
 };
 
 // --- PRESET ENGINES ---
@@ -86,12 +86,12 @@ export default function App() {
   const [highGain, setHighGain] = useState(100);
   const [masterGain, setMasterGain] = useState(100);
 
-  // Ableton-style Modular Matrix Routing: map audio sources to visual targets
+  // Ableton-style Modular Matrix Routing: map audio sources to visual targets with Threshold Gate & Depth
   const [modMatrix, setModMatrix] = useState({
-    sub: { target: 'warp', amount: 100 },
-    low: { target: 'geometry', amount: 90 },
-    mid: { target: 'rotation', amount: 75 },
-    high: { target: 'particles', amount: 110 }
+    sub: { target: 'warp_tunnel', amount: 100, gate: 15 },
+    low: { target: 'shockwave', amount: 90, gate: 20 },
+    mid: { target: 'wave_current', amount: 80, gate: 15 },
+    high: { target: 'reverse_spin', amount: 110, gate: 10 }
   });
 
   // Dedicated Visual Engine Parameters
@@ -151,7 +151,7 @@ export default function App() {
 
   const releaseWakeLock = () => {
     if (wakeLockRef.current) {
-      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current.release().catch(() => { });
       wakeLockRef.current = null;
     }
   };
@@ -329,15 +329,33 @@ export default function App() {
     }
   };
 
-  // Matrix Value Evaluator
+  // Matrix Value Evaluator with Noise / Effect Gate Threshold
   const getModValue = (targetId, currentBandValues) => {
     let modSum = 0;
     const { modMatrix } = stateRef.current;
-    if (modMatrix.sub.target === targetId) modSum += currentBandValues.sub * (modMatrix.sub.amount / 100);
-    if (modMatrix.low.target === targetId) modSum += currentBandValues.low * (modMatrix.low.amount / 100);
-    if (modMatrix.mid.target === targetId) modSum += currentBandValues.mid * (modMatrix.mid.amount / 100);
-    if (modMatrix.high.target === targetId) modSum += currentBandValues.high * (modMatrix.high.amount / 100);
-    return modSum;
+    if (!modMatrix) return 0;
+
+    const evalBand = (bandKey) => {
+      const route = modMatrix[bandKey];
+      if (!route || route.target !== targetId) return 0;
+      const rawVal = Number(currentBandValues[bandKey]) || 0;
+      const gateThresh = (Number(route.gate) || 0) / 100;
+      const amount = (Number(route.amount) || 0) / 100;
+
+      // If signal does not pass threshold gate, output is zeroed
+      if (rawVal < gateThresh) return 0;
+
+      // Normalized active range above gate
+      const activeRange = (rawVal - gateThresh) / (1 - gateThresh + 0.0001);
+      return activeRange * amount;
+    };
+
+    modSum += evalBand('sub');
+    modSum += evalBand('low');
+    modSum += evalBand('mid');
+    modSum += evalBand('high');
+
+    return isNaN(modSum) ? 0 : modSum;
   };
 
   // Single Frame Render Engine
@@ -398,7 +416,7 @@ export default function App() {
 
     // Shockwave & Pulse Explosion
     const shockMod = getModValue('shockwave', bands);
-    
+
     // Sinusoidal Wave & Fluid Undulation
     const waveMod = getModValue('wave_current', bands);
 
@@ -579,19 +597,19 @@ export default function App() {
     else if (st.activeEngine === 'particles') {
       ctx.save();
       const pts = particlesRef.current;
-      
+
       // Dynamic Forward Warp & Shockwave
       const forwardBoost = (1 + bands.sub * 4.5 + warpMod * 4.0) * st.params.speed;
       const subShockwave = bands.sub > 0.4 || shockMod > 0.25;
-      
+
       // Particle Mass & Scaling
       const lowPulse = 1 + bands.low * 2.2 + massMod * 2.0;
-      
+
       // Vortex angular speed with DIRECTIONAL REVERSE / FORWARD control!
       // When reverse_spin is routed, particles vigorously whirl COUNTER-CLOCKWISE on hi-hat/frequency hits!
       const vortexSpeed = (0.015 + spinDelta * 1.5 + bands.mid * 0.08);
       const waveFreq = st.time * 4 + (bands.mid + waveMod) * 8;
-      
+
       // Highs & Laser filaments
       const highActive = bands.high > 0.15 || laserMod > 0.15;
       const activeCount = Math.min(pts.length, Math.round(st.params.particleCount + massMod * 600 + (bands.high + laserMod) * 500));
@@ -630,7 +648,7 @@ export default function App() {
       // 3. PARTICLE SIMULATION LOOP
       for (let i = 0; i < activeCount; i++) {
         const p = pts[i];
-        
+
         p.z -= forwardBoost * p.vz;
         if (p.z <= 0) {
           p.z = 2000;
@@ -639,7 +657,7 @@ export default function App() {
         }
 
         const k = 400 / p.z;
-        
+
         // VORTEX SWIRL: Uses signed vortexSpeed (Negative for Counter-Clockwise!)
         const distCenter = Math.hypot(p.x, p.y);
         const swirlAngle = vortexSpeed * (1200 / (distCenter + 60));
@@ -669,7 +687,7 @@ export default function App() {
         if (screenX >= 0 && screenX < W && screenY >= 0 && screenY < H) {
           const sparkle = highActive ? (1 + Math.sin(i + st.time * 20) * (bands.high + laserMod) * 2.0) : 1;
           const pSize = Math.max(1, p.size * k * (3.5 * lowPulse) * sparkle);
-          
+
           const colIndex = (i + colorOffset) % palColors.length;
           const col = palColors[colIndex];
           const alpha = Math.min(1, (1 - p.z / 2000) * (0.6 + bloomMod * 0.4 + (bands.high + laserMod) * 0.4));
@@ -712,32 +730,44 @@ export default function App() {
       ctx.save();
       ctx.translate(cx, cy * 1.15);
       const rows = 18;
-      const cols = st.params.wireframeDetail || 32;
-      const gridW = W * 1.2;
-      const gridH = H * 0.8;
+      const cols = Math.max(16, Math.round((st.params.wireframeDetail || 32) + kaleidoMod * 16));
+      const gridW = W * (1.2 + shockMod * 0.4);
+      const gridH = H * (0.8 + warpMod * 0.5);
 
-      ctx.rotate(Math.PI * 0.15); // Isometric camera angle
+      ctx.rotate(Math.PI * 0.15 + (spinDelta * 3)); // Isometric camera angle + spin
 
       for (let r = 0; r < rows; r++) {
         const zRatio = (r / rows);
         const rowY = (r / rows) * gridH - gridH * 0.5;
-        const col = palColors[r % palColors.length];
+        const col = palColors[(r + colorOffset) % palColors.length];
 
         ctx.strokeStyle = col;
-        ctx.lineWidth = 1.5 + bloomMod;
-        ctx.shadowBlur = 8 * Math.min(bloomMod, 2);
+        ctx.lineWidth = (1.5 + bloomMod + massMod * 1.5);
+        ctx.shadowBlur = (8 + laserMod * 12) * Math.min(bloomMod, 2);
         ctx.shadowColor = col;
 
         ctx.beginPath();
         for (let c = 0; c <= cols; c++) {
           const colX = (c / cols) * gridW - gridW * 0.5;
           const freqIndex = Math.floor((c / cols) * freqData.length * 0.4);
-          const elev = (freqData[freqIndex] / 255) * (180 * bands.master * (1 + bands.low)) * Math.sin(c * 0.2 + st.time * 3);
+          const waveElev = Math.sin(c * 0.4 + st.time * 6) * (waveMod * 60);
+          const shockElev = Math.cos(r * 0.5 - st.time * 4) * (shockMod * 50);
+          const elev = ((freqData[freqIndex] || 0) / 255) * (180 * bands.master * (1 + bands.low * 1.5)) * Math.sin(c * 0.2 + st.time * 3) + waveElev + shockElev;
           const py = rowY - elev;
 
           c === 0 ? ctx.moveTo(colX, py) : ctx.lineTo(colX, py);
         }
         ctx.stroke();
+
+        // Cross-wire laser beams
+        if (laserMod > 0.15 && r % 3 === 0) {
+          ctx.strokeStyle = palColors[(r + 2 + colorOffset) % palColors.length];
+          ctx.lineWidth = 1 + laserMod * 2;
+          ctx.beginPath();
+          ctx.moveTo(-gridW * 0.5, rowY);
+          ctx.lineTo(gridW * 0.5, rowY);
+          ctx.stroke();
+        }
       }
       ctx.restore();
     }
@@ -745,25 +775,30 @@ export default function App() {
     // --- ENGINE 5: GLITCH MATRIX & DATA SORTING ---
     else if (st.activeEngine === 'cyber') {
       ctx.save();
-      const bandsCount = 48;
+      const bandsCount = Math.max(24, Math.round(48 + kaleidoMod * 24));
       const cellW = W / bandsCount;
 
       for (let i = 0; i < bandsCount; i++) {
-        const binVal = freqData[Math.floor(i * (freqData.length / bandsCount))] / 255;
-        const sliceH = binVal * H * (1 + bands.mid);
-        const isGlitch = Math.random() < (0.05 + bands.sub * 0.3);
+        const binVal = ((freqData[Math.floor(i * (freqData.length / bandsCount))] || 0) / 255);
+        const waveH = Math.sin(i * 0.3 + st.time * 5) * (waveMod * 80);
+        const sliceH = Math.max(4, (binVal * H * (1 + bands.mid * 1.5) + waveH) * (1 + massMod * 0.8));
+        const isGlitch = Math.random() < (0.05 + (bands.sub + shockMod) * 0.4);
 
-        const x = i * cellW;
+        const xShift = spinDelta * 300;
+        const x = (i * cellW + xShift + W) % W;
         const y = isGlitch ? Math.random() * (H - sliceH) : (H - sliceH) / 2;
-        const col = palColors[i % palColors.length];
+        const col = palColors[(i + colorOffset) % palColors.length];
 
         ctx.fillStyle = col;
-        ctx.fillRect(x, y, cellW - 2, sliceH);
+        ctx.shadowBlur = (laserMod > 0.1 ? 12 : 0) * bloomMod;
+        ctx.shadowColor = col;
+        ctx.fillRect(x, y, Math.max(1, cellW - 2), sliceH);
 
-        // Cyber scanlines
-        if (i % 2 === 0) {
-          ctx.fillStyle = palColors[(i + 1) % palColors.length];
-          ctx.fillRect(x, (y + st.time * 100) % H, cellW - 2, 4);
+        // Cyber scanlines & Laser Streaks
+        if (i % 2 === 0 || laserMod > 0.2) {
+          ctx.fillStyle = palColors[(i + 1 + colorOffset) % palColors.length];
+          const scanY = (y + st.time * (100 + warpMod * 200)) % H;
+          ctx.fillRect(x, scanY, Math.max(1, cellW - 2), (2 + laserMod * 4));
         }
       }
       ctx.restore();
@@ -776,30 +811,36 @@ export default function App() {
       const step = W / numPoints;
 
       ctx.strokeStyle = c0;
-      ctx.lineWidth = 3 + bloomMod * 2;
-      ctx.shadowBlur = 15 * Math.min(bloomMod, 2);
+      ctx.lineWidth = (3 + bloomMod * 2 + massMod * 3);
+      ctx.shadowBlur = (15 + laserMod * 15) * Math.min(bloomMod, 2);
       ctx.shadowColor = c0;
 
       ctx.beginPath();
       for (let i = 0; i < numPoints; i++) {
-        const v = (waveData[i] / 128.0) - 1.0;
-        const y = cy + (v * (H * 0.4) * (1 + bands.low + bands.sub));
-        const x = i * step;
+        const v = ((waveData[i] || 128) / 128.0) - 1.0;
+        const waveDisplace = Math.sin(i * 0.05 + st.time * 8) * (waveMod * 50);
+        const shockDisplace = (Math.random() - 0.5) * (shockMod * 40);
+        const y = cy + (v * (H * 0.4) * (1 + bands.low + bands.sub * 1.5 + warpMod) + waveDisplace + shockDisplace);
+        const x = (i * step + (spinDelta * 200) + W) % W;
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       ctx.stroke();
 
-      // Mirrored Harmonic reflection
-      ctx.strokeStyle = c1;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (let i = 0; i < numPoints; i++) {
-        const v = (waveData[i] / 128.0) - 1.0;
-        const y = cy - (v * (H * 0.3) * (1 + bands.high));
-        const x = i * step;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      // Mirrored Harmonic reflection & Kaleidoscope Multiplier
+      const mirCount = Math.max(1, Math.round(1 + kaleidoMod * 3));
+      for (let m = 1; m <= mirCount; m++) {
+        ctx.strokeStyle = palColors[(m + colorOffset) % palColors.length];
+        ctx.lineWidth = 1.5 + laserMod * 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < numPoints; i += (m > 1 ? 2 : 1)) {
+          const v = ((waveData[i] || 128) / 128.0) - 1.0;
+          const y = cy - (v * (H * (0.3 / m)) * (1 + bands.high * 1.5));
+          const x = i * step;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
+
       ctx.restore();
     }
 
@@ -845,10 +886,10 @@ export default function App() {
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => { });
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       setIsFullscreen(false);
     }
   };
@@ -1022,10 +1063,11 @@ export default function App() {
           {activeTab === 'matrix' && (
             <div className="rack-device-grid">
               {/* SUB BASS STRIP */}
-              <div className="device-channel">
+              <div className={`device-channel ${levels.sub >= (modMatrix.sub.gate || 0) / 100 && levels.sub > 0.02 ? 'gate-triggered' : ''}`}>
                 <div className="channel-banner" style={{ backgroundColor: '#ff0055' }}>Sub Bass (0–60Hz)</div>
                 <div className="channel-body">
-                  <div className="meter-container">
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.sub.gate || 0}%`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.sub.gate || 0}%` }}></div>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.sub * (subGain / 100) * 100)}%`, backgroundColor: '#ff0055' }}></div>
                   </div>
                   <div className="control-column">
@@ -1049,6 +1091,16 @@ export default function App() {
                       ))}
                     </select>
                     <div className="mod-depth-row">
+                      <span>Gate</span>
+                      <input
+                        type="range" min="0" max="90" value={modMatrix.sub.gate || 0}
+                        onChange={e => handleMatrixChange('sub', 'gate', Number(e.target.value))}
+                        className="fader-mini gate-slider"
+                        title="Noise / Trigger Gate Threshold"
+                      />
+                      <span>{modMatrix.sub.gate || 0}%</span>
+                    </div>
+                    <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
                         type="range" min="0" max="200" value={modMatrix.sub.amount}
@@ -1062,10 +1114,11 @@ export default function App() {
               </div>
 
               {/* LOW BASS STRIP */}
-              <div className="device-channel">
+              <div className={`device-channel ${levels.low >= (modMatrix.low.gate || 0) / 100 && levels.low > 0.02 ? 'gate-triggered' : ''}`}>
                 <div className="channel-banner" style={{ backgroundColor: '#ff9900' }}>Low / Kick (60–250Hz)</div>
                 <div className="channel-body">
-                  <div className="meter-container">
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.low.gate || 0}%`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.low.gate || 0}%` }}></div>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.low * (lowGain / 100) * 100)}%`, backgroundColor: '#ff9900' }}></div>
                   </div>
                   <div className="control-column">
@@ -1089,6 +1142,16 @@ export default function App() {
                       ))}
                     </select>
                     <div className="mod-depth-row">
+                      <span>Gate</span>
+                      <input
+                        type="range" min="0" max="90" value={modMatrix.low.gate || 0}
+                        onChange={e => handleMatrixChange('low', 'gate', Number(e.target.value))}
+                        className="fader-mini gate-slider"
+                        title="Noise / Trigger Gate Threshold"
+                      />
+                      <span>{modMatrix.low.gate || 0}%</span>
+                    </div>
+                    <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
                         type="range" min="0" max="200" value={modMatrix.low.amount}
@@ -1102,10 +1165,11 @@ export default function App() {
               </div>
 
               {/* MIDS STRIP */}
-              <div className="device-channel">
+              <div className={`device-channel ${levels.mid >= (modMatrix.mid.gate || 0) / 100 && levels.mid > 0.02 ? 'gate-triggered' : ''}`}>
                 <div className="channel-banner" style={{ backgroundColor: '#00ffcc' }}>Mids / Vocal (250–2.5kHz)</div>
                 <div className="channel-body">
-                  <div className="meter-container">
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.mid.gate || 0}%`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.mid.gate || 0}%` }}></div>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.mid * (midGain / 100) * 100)}%`, backgroundColor: '#00ffcc' }}></div>
                   </div>
                   <div className="control-column">
@@ -1129,6 +1193,16 @@ export default function App() {
                       ))}
                     </select>
                     <div className="mod-depth-row">
+                      <span>Gate</span>
+                      <input
+                        type="range" min="0" max="90" value={modMatrix.mid.gate || 0}
+                        onChange={e => handleMatrixChange('mid', 'gate', Number(e.target.value))}
+                        className="fader-mini gate-slider"
+                        title="Noise / Trigger Gate Threshold"
+                      />
+                      <span>{modMatrix.mid.gate || 0}%</span>
+                    </div>
+                    <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
                         type="range" min="0" max="200" value={modMatrix.mid.amount}
@@ -1142,10 +1216,11 @@ export default function App() {
               </div>
 
               {/* HIGHS STRIP */}
-              <div className="device-channel">
+              <div className={`device-channel ${levels.high >= (modMatrix.high.gate || 0) / 100 && levels.high > 0.02 ? 'gate-triggered' : ''}`}>
                 <div className="channel-banner" style={{ backgroundColor: '#a855f7' }}>Highs / Hi-Hat (2.5k–20kHz)</div>
                 <div className="channel-body">
-                  <div className="meter-container">
+                  <div className="meter-container" title={`Gate Threshold: ${modMatrix.high.gate || 0}%`}>
+                    <div className="meter-gate-line" style={{ bottom: `${modMatrix.high.gate || 0}%` }}></div>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.high * (highGain / 100) * 100)}%`, backgroundColor: '#a855f7' }}></div>
                   </div>
                   <div className="control-column">
@@ -1168,6 +1243,16 @@ export default function App() {
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
                     </select>
+                    <div className="mod-depth-row">
+                      <span>Gate</span>
+                      <input
+                        type="range" min="0" max="90" value={modMatrix.high.gate || 0}
+                        onChange={e => handleMatrixChange('high', 'gate', Number(e.target.value))}
+                        className="fader-mini gate-slider"
+                        title="Noise / Trigger Gate Threshold"
+                      />
+                      <span>{modMatrix.high.gate || 0}%</span>
+                    </div>
                     <div className="mod-depth-row">
                       <span>Depth</span>
                       <input
