@@ -89,6 +89,11 @@ export default function App() {
   const [highGain, setHighGain] = useState(100);
   const [masterGain, setMasterGain] = useState(100);
 
+  // Global DSP Analysis Parameters (audio-visualizer.com inspired)
+  const [sensitivity, setSensitivity] = useState(1.0); // 0.1x to 3.0x input sensitivity
+  const [smoothing, setSmoothing] = useState(0.25);    // 0.00 to 0.95 analyser smoothing
+  const [fftDetail, setFftDetail] = useState(2048);    // 128 to 2048 FFT resolution (2^N)
+
   // Ableton-style Modular Matrix Routing: map audio sources to visual targets with Threshold Gate & Depth
   const [modMatrix, setModMatrix] = useState({
     sub: { target: 'warp_tunnel', amount: 150, gate: 15, intensity: 120 },
@@ -158,6 +163,9 @@ export default function App() {
     activeEngine,
     activePalette,
     subGain, lowGain, midGain, highGain, masterGain,
+    sensitivity,
+    smoothing,
+    fftDetail,
     modMatrix,
     params,
     time: 0,
@@ -174,9 +182,12 @@ export default function App() {
     stateRef.current.midGain = midGain;
     stateRef.current.highGain = highGain;
     stateRef.current.masterGain = masterGain;
+    stateRef.current.sensitivity = sensitivity;
+    stateRef.current.smoothing = smoothing;
+    stateRef.current.fftDetail = fftDetail;
     stateRef.current.modMatrix = modMatrix;
     stateRef.current.params = params;
-  }, [activeEngine, activePalette, subGain, lowGain, midGain, highGain, masterGain, modMatrix, params]);
+  }, [activeEngine, activePalette, subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing, fftDetail, modMatrix, params]);
 
   // Request Screen WakeLock to prevent browser / display from sleeping
   const requestWakeLock = async () => {
@@ -338,9 +349,9 @@ export default function App() {
     }
 
     const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 2048;
-    // 0.25 smoothing provides razor-sharp, millisecond-tight reaction to beats and transients
-    analyser.smoothingTimeConstant = 0.25;
+    analyser.fftSize = stateRef.current.fftDetail || 2048;
+    // Dynamic smoothing time constant from state (defaults to 0.25 for crisp responsiveness)
+    analyser.smoothingTimeConstant = stateRef.current.smoothing !== undefined ? stateRef.current.smoothing : 0.25;
     analyser.minDecibels = -90;
     analyser.maxDecibels = -10;
 
@@ -484,54 +495,69 @@ export default function App() {
     const st = stateRef.current;
     st.time += 0.015 * st.params.speed;
 
-    // Calculate true isolated acoustic frequency sub-bands (FFT 2048 at ~48kHz = ~23.4Hz/bin):
-    // 1. Sub Bass: 20 Hz - 65 Hz (bins 1 to 3) - strictly kicks & sub drops, zero bleed
+    // Calculate dynamic frequency bin resolution and acoustic sub-bands
+    const sampleRate = audioCtxRef.current?.sampleRate || 48000;
+    const fftSize = analyser.fftSize || 2048;
+    const binHz = sampleRate / fftSize;
+    const maxBin = freqData.length - 1;
+    const sens = Number(st.sensitivity) || 1.0;
+
+    // 1. Sub Bass: 20 Hz - 65 Hz - strictly sub-bass & 808 sub drops
+    const subStart = Math.max(1, Math.min(maxBin, Math.round(20 / binHz)));
+    const subEnd = Math.max(subStart, Math.min(maxBin, Math.round(65 / binHz)));
     let subSum = 0, subMax = 0;
-    for (let i = 1; i <= 3; i++) {
+    for (let i = subStart; i <= subEnd; i++) {
       const v = freqData[i] || 0;
       subSum += v;
       if (v > subMax) subMax = v;
     }
-    const rawSub = (subSum / 3) / 255;
+    const rawSub = Math.min(1, ((subSum / Math.max(1, subEnd - subStart + 1)) / 255) * sens);
     const subPunch = Math.max(0, rawSub - (prevBandsRef.current.sub || 0));
     const subVal = Math.min(1, (Math.pow(rawSub, 1.1) * (st.subGain / 100) * 1.5) + (subPunch * 0.4));
 
-    // 2. Low / Bass: 65 Hz - 250 Hz (bins 4 to 11) - punchy kicks, basslines, 808 body
+    // 2. Low / Bass: 65 Hz - 250 Hz - punchy kick transients & basslines
+    const lowStart = Math.max(subEnd + 1, Math.min(maxBin, Math.round(65 / binHz)));
+    const lowEnd = Math.max(lowStart, Math.min(maxBin, Math.round(250 / binHz)));
     let lowSum = 0, lowMax = 0;
-    for (let i = 4; i <= 11; i++) {
+    for (let i = lowStart; i <= lowEnd; i++) {
       const v = freqData[i] || 0;
       lowSum += v;
       if (v > lowMax) lowMax = v;
     }
-    const rawLow = (lowSum / 8) / 255;
+    const rawLow = Math.min(1, ((lowSum / Math.max(1, lowEnd - lowStart + 1)) / 255) * sens);
     const lowPunch = Math.max(0, rawLow - (prevBandsRef.current.low || 0));
     const lowVal = Math.min(1, (Math.pow(rawLow, 1.1) * (st.lowGain / 100) * 1.4) + (lowPunch * 0.35));
 
-    // 3. Mids / Vocals & Synths: 250 Hz - 2500 Hz (bins 12 to 108) - vocals, snares, synths
+    // 3. Mids / Vocals & Synths: 250 Hz - 2500 Hz
+    const midStart = Math.max(lowEnd + 1, Math.min(maxBin, Math.round(250 / binHz)));
+    const midEnd = Math.max(midStart, Math.min(maxBin, Math.round(2500 / binHz)));
     let midSum = 0;
-    for (let i = 12; i <= 108; i++) {
+    for (let i = midStart; i <= midEnd; i++) {
       midSum += freqData[i] || 0;
     }
-    const rawMid = (midSum / 97) / 255;
+    const rawMid = Math.min(1, ((midSum / Math.max(1, midEnd - midStart + 1)) / 255) * sens);
     const midPunch = Math.max(0, rawMid - (prevBandsRef.current.mid || 0));
     const midVal = Math.min(1, (Math.pow(rawMid, 1.0) * (st.midGain / 100) * 1.4) + (midPunch * 0.3));
 
-    // 4. Highs / Hi-Hats & Cymbals: 2500 Hz - 16000 Hz (bins 109 to 680) - hi-hats, air, sibilance
+    // 4. Highs / Hi-Hats & Cymbals: 2500 Hz - 16000 Hz
+    const highStart = Math.max(midEnd + 1, Math.min(maxBin, Math.round(2500 / binHz)));
+    const highEnd = Math.max(highStart, Math.min(maxBin, Math.round(16000 / binHz)));
     let highSum = 0, highMax = 0;
     let highCount = 0;
-    for (let i = 109; i <= 680; i += 2) {
+    const highStep = Math.max(1, Math.floor((highEnd - highStart) / 120));
+    for (let i = highStart; i <= highEnd; i += highStep) {
       const v = freqData[i] || 0;
       // High-shelf loudness weighting: compensate for natural 1/f spectral rolloff
-      const weight = 1 + ((i - 109) / (680 - 109)) * 1.8;
+      const weight = 1 + ((i - highStart) / Math.max(1, highEnd - highStart)) * 1.8;
       const weightedV = Math.min(255, v * weight);
       highSum += weightedV;
       if (weightedV > highMax) highMax = weightedV;
       highCount++;
     }
-    const avgHigh = (highSum / highCount) / 255;
+    const avgHigh = (highSum / Math.max(1, highCount)) / 255;
     const peakHigh = highMax / 255;
     // Blend avg (35%) and peak (65%) so hi-hat transients spike clearly
-    const rawHigh = (avgHigh * 0.35) + (peakHigh * 0.65);
+    const rawHigh = Math.min(1, ((avgHigh * 0.35) + (peakHigh * 0.65)) * sens);
     const highPunch = Math.max(0, rawHigh - (prevBandsRef.current.high || 0));
     const highVal = Math.min(1, (rawHigh * (st.highGain / 100) * 1.5) + (highPunch * 0.4));
 
@@ -543,12 +569,13 @@ export default function App() {
       high: rawHigh
     };
 
-    // Fast non-allocating peak search (no array spreading or GC churn)
+    // Fast non-allocating peak search bound to current buffer size
     let peakRaw = 0;
-    for (let i = 0; i < 1024; i++) {
+    const bufLen = freqData.length;
+    for (let i = 0; i < bufLen; i++) {
       if (freqData[i] > peakRaw) peakRaw = freqData[i];
     }
-    const peak = peakRaw / 255;
+    const peak = Math.min(1, (peakRaw / 255) * sens);
 
     const bands = {
       sub: subVal,
@@ -1117,6 +1144,34 @@ export default function App() {
     }));
   };
 
+  // DSP Analysis Handlers (Sensitivity, Smoothing, Detail FFT)
+  const handleSensitivityChange = (val) => {
+    setSensitivity(val);
+    stateRef.current.sensitivity = val;
+  };
+
+  const handleSmoothingChange = (val) => {
+    setSmoothing(val);
+    stateRef.current.smoothing = val;
+    if (analyserRef.current) {
+      analyserRef.current.smoothingTimeConstant = val;
+    }
+  };
+
+  const handleFftDetailChange = (val) => {
+    setFftDetail(val);
+    stateRef.current.fftDetail = val;
+    if (analyserRef.current) {
+      try {
+        analyserRef.current.fftSize = val;
+        dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+        waveDataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+      } catch (err) {
+        console.error('Failed to dynamically update FFT size:', err);
+      }
+    }
+  };
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => { });
@@ -1589,21 +1644,73 @@ export default function App() {
                 </div>
               </div>
 
-              {/* MASTER OUTPUT GAIN */}
+              {/* MASTER OUTPUT GAIN & DSP ACOUSTIC ANALYSIS */}
               <div className="device-channel master-channel">
-                <div className="channel-banner" style={{ backgroundColor: '#ffffff', color: '#000' }}>Master Gain</div>
-                <div className="channel-body">
-                  <div className="meter-container">
+                <div className="channel-banner" style={{ backgroundColor: '#ffffff', color: '#000' }}>
+                  <span>Master & DSP Engine</span>
+                  <span className="dsp-badge">FFT {fftDetail}</span>
+                </div>
+                <div className="channel-body master-body">
+                  <div className="meter-container" title={`Master Peak Level: ${Math.round(levels.peak * 100)}%`}>
                     <div className="meter-bar" style={{ height: `${Math.min(100, levels.peak * (masterGain / 100) * 100)}%`, backgroundColor: '#3b82f6' }}></div>
                   </div>
                   <div className="control-column">
-                    <span className="strip-title">Master Output</span>
+                    <span className="strip-title">Master</span>
                     <input
                       type="range" min="0" max="200" value={masterGain}
                       onChange={e => setMasterGain(Number(e.target.value))}
                       className="fader-input"
+                      title="Master Output Gain (0% - 200%)"
                     />
                     <span className="fader-val">{masterGain}%</span>
+                  </div>
+                  <div className="dsp-controls-box">
+                    <div className="dsp-header">Analysis DSP</div>
+                    
+                    {/* SENSITIVITY SLIDER */}
+                    <div className="dsp-slider-row">
+                      <div className="dsp-label-row">
+                        <span className="dsp-lbl">Sensitivity</span>
+                        <span className="dsp-val">{sensitivity.toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range" min="0.1" max="3.0" step="0.05"
+                        value={sensitivity}
+                        onChange={e => handleSensitivityChange(Number(e.target.value))}
+                        className="fader-mini dsp-slider sensitivity-slider"
+                        title="Sensitivity: scales incoming audio responsiveness before gating (0.1x - 3.0x)"
+                      />
+                    </div>
+
+                    {/* SMOOTHING SLIDER */}
+                    <div className="dsp-slider-row">
+                      <div className="dsp-label-row">
+                        <span className="dsp-lbl">Smoothing</span>
+                        <span className="dsp-val">{smoothing.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range" min="0.0" max="0.95" step="0.01"
+                        value={smoothing}
+                        onChange={e => handleSmoothingChange(Number(e.target.value))}
+                        className="fader-mini dsp-slider smoothing-slider"
+                        title="Smoothing: time-constant averaging from instant transients to fluid decay (0.00 - 0.95)"
+                      />
+                    </div>
+
+                    {/* DETAIL (FFT) SLIDER */}
+                    <div className="dsp-slider-row">
+                      <div className="dsp-label-row">
+                        <span className="dsp-lbl">Detail (FFT)</span>
+                        <span className="dsp-val">{fftDetail}</span>
+                      </div>
+                      <input
+                        type="range" min="7" max="11" step="1"
+                        value={Math.round(Math.log2(fftDetail))}
+                        onChange={e => handleFftDetailChange(Math.pow(2, Number(e.target.value)))}
+                        className="fader-mini dsp-slider fft-slider"
+                        title="Detail (FFT): frequency resolution bins (128 to 2048)"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

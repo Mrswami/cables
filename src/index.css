@@ -521,7 +521,8 @@ body {
 }
 
 .device-channel.master-channel {
-  flex: 0.75 1 0;
+  flex: 1.45 1 0;
+  min-width: 230px;
   border-color: #3b3b4f;
 }
 
@@ -735,6 +736,75 @@ body {
 }
 .mod-depth-row:has(.intensity-slider) {
   color: #39ff14;
+}
+
+/* Master & DSP Analysis Module */
+.dsp-badge {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #3b82f6;
+  color: #ffffff;
+  letter-spacing: 0.6px;
+}
+
+.dsp-controls-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3px;
+  flex-grow: 1;
+  min-width: 0;
+  background: var(--bg-panel-light);
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+}
+
+.dsp-header {
+  font-size: 8px;
+  font-weight: 700;
+  color: #60a5fa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dsp-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dsp-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.dsp-lbl {
+  font-size: 8.5px;
+  font-weight: 600;
+}
+
+.dsp-val {
+  color: var(--text-active);
+  font-weight: 700;
+}
+
+.dsp-slider.sensitivity-slider {
+  accent-color: #00f0ff;
+}
+
+.dsp-slider.smoothing-slider {
+  accent-color: #ec4899;
+}
+
+.dsp-slider.fft-slider {
+  accent-color: #3b82f6;
 }
 
 /* TAB 2: DEDICATED ENGINE PARAMETERS VIEW */
