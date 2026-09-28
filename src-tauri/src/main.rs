@@ -65,8 +65,9 @@ fn process_audio(
             for c in complex_buffer.iter().take(FFT_SIZE / 2) {
                 let mag = (c.norm() * (2.0 / FFT_SIZE as f32)).max(1e-10);
                 let db = 20.0 * mag.log10();
-                let min_db = -90.0_f32;
-                let max_db = -10.0_f32;
+                // Raise the noise floor gate to -60dB to ignore hardware dither/noise
+                let min_db = -60.0_f32;
+                let max_db = -5.0_f32;
                 let scaled = 255.0 * (db - min_db) / (max_db - min_db);
                 byte_data.push(scaled.clamp(0.0, 255.0) as u8);
             }
@@ -77,7 +78,12 @@ fn process_audio(
             }
 
             let _ = tx_clone.send(byte_data);
-            sample_buffer.clear();
+            
+            // 75% Overlap: Instead of clearing the buffer and waiting 42ms for a whole new block,
+            // we remove only the oldest 512 samples and slide forward. This gives us ~93 FPS 
+            // framerate and guarantees we perfectly capture every fast transient (Kick/Hat).
+            let step_size = FFT_SIZE / 4;
+            sample_buffer.drain(0..step_size);
         }
     }
 }
@@ -116,7 +122,9 @@ fn start_loopback_thread(
             Err(e) => { eprintln!("get_iaudioclient failed: {:?}", e); return; }
         };
 
-        let desired_format = WaveFormat::new(32, 32, &SampleType::Float, 48000, 2, None);
+        // Let Windows tell us exactly what format the soundcard is using, instead of forcing a hardcoded one.
+        // This solves silent/empty packet errors on Realtek and Voicemeeter devices.
+        let desired_format = audio_client.get_mixformat().unwrap();
 
         if let Err(e) = audio_client.initialize_client(
             &desired_format,
@@ -140,6 +148,7 @@ fn start_loopback_thread(
         eprintln!("Loopback capture started for: {}", if device_name.is_empty() { "default".to_string() } else { device_name.clone() });
 
         let channels = desired_format.get_nchannels() as usize;
+        let bits_per_sample = desired_format.get_bitspersample();
         let mut planner = FftPlanner::new();
         let fft = planner.plan_fft_forward(FFT_SIZE);
         let mut sample_buffer: Vec<f32> = Vec::with_capacity(FFT_SIZE);
@@ -147,7 +156,7 @@ fn start_loopback_thread(
         let mut scratch: Vec<Complex<f32>> =
             vec![Complex { re: 0.0, im: 0.0 }; fft.get_inplace_scratch_len()];
 
-        let mut raw_buf = vec![0u8; 8192];
+        let mut raw_buf = vec![0u8; 16384];
 
         loop {
             // Check for stop signal (non-blocking)
@@ -155,32 +164,53 @@ fn start_loopback_thread(
                 break;
             }
 
-            match capture_client.get_next_packet_size() {
-                Ok(Some(0)) | Ok(None) | Err(_) => {
-                    std::thread::sleep(std::time::Duration::from_millis(1));
-                    continue;
-                }
-                Ok(Some(_)) => {}
-            }
+            let mut drained_any = false;
 
-            match capture_client.read_from_device(&mut raw_buf) {
-                Ok((bytes_read, _info)) => {
-                    if bytes_read > 0 {
-                        let floats: Vec<f32> = raw_buf[..bytes_read as usize]
-                            .chunks_exact(4)
-                            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                            .collect();
-                        let mono: Vec<f32> = floats
-                            .chunks(channels)
-                            .map(|frame| frame.iter().sum::<f32>() / channels as f32)
-                            .collect();
-                        process_audio(&mono, &mut sample_buffer, &mut complex_buffer, &mut scratch, &fft, &tx);
+            // Drain all available WASAPI packets immediately to ensure zero latency and prevent queue buildup
+            while let Ok(Some(packet_size)) = capture_client.get_next_packet_size() {
+                if packet_size == 0 {
+                    break;
+                }
+                drained_any = true;
+
+                match capture_client.read_from_device(&mut raw_buf) {
+                    Ok((bytes_read, _info)) => {
+                        if bytes_read > 0 {
+                            let floats: Vec<f32> = match bits_per_sample {
+                                16 => raw_buf[..bytes_read as usize]
+                                    .chunks_exact(2)
+                                    .map(|b| (i16::from_le_bytes([b[0], b[1]]) as f32) / 32768.0)
+                                    .collect(),
+                                24 => raw_buf[..bytes_read as usize]
+                                    .chunks_exact(3)
+                                    .map(|b| {
+                                        let val = (b[0] as i32) | ((b[1] as i32) << 8) | ((b[2] as i8 as i32) << 16);
+                                        (val as f32) / 8388608.0
+                                    })
+                                    .collect(),
+                                _ => raw_buf[..bytes_read as usize]
+                                    .chunks_exact(4)
+                                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                                    .collect(),
+                            };
+
+                            let mono: Vec<f32> = floats
+                                .chunks(channels.max(1))
+                                .map(|frame| frame.iter().sum::<f32>() / channels.max(1) as f32)
+                                .collect();
+
+                            process_audio(&mono, &mut sample_buffer, &mut complex_buffer, &mut scratch, &fft, &tx);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("read_from_device error: {:?}", e);
+                        break;
                     }
                 }
-                Err(e) => {
-                    eprintln!("read_from_device error: {:?}", e);
-                    std::thread::sleep(std::time::Duration::from_millis(5));
-                }
+            }
+
+            if !drained_any {
+                std::thread::sleep(std::time::Duration::from_millis(1));
             }
         }
 

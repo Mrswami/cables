@@ -16,13 +16,18 @@ class AudioStore {
       sub: 0, low: 0, mid: 0, high: 0, peak: 0, master: 1, energy: 0, isActive: false
     };
     
-    // Config from UI - all band gains default to 0 until user turns them up
+    // Config from UI - default gains to 100% unity
     this.config = {
-      subGain: 0, lowGain: 0, midGain: 0, highGain: 0, masterGain: 100,
+      subGain: 100, lowGain: 100, midGain: 100, highGain: 100, masterGain: 100,
       sensitivity: 1.0,
       smoothing: 0.25
     };
     
+    // Envelope Follower State (for flawless transient/rhythm tracking)
+    this.envelopes = { sub: 0, low: 0, mid: 0, high: 0 };
+    this.attack = 0.92;  // Very fast attack to catch kick drum transients instantly
+    this.release = 0.15; // Smooth release to ride the rhythm like a sidechain compressor
+
     this.prevBands = { sub: 0, low: 0, mid: 0, high: 0 };
     this.isRunning = false;
   }
@@ -75,6 +80,7 @@ class AudioStore {
     }
     this.freqData.fill(0);
     this.waveData.fill(128);
+    this.envelopes = { sub: 0, low: 0, mid: 0, high: 0 };
   }
 
   // Called per frame by the main loop or useFrame
@@ -88,51 +94,103 @@ class AudioStore {
     }
     
     const freq = this.freqData;
-    const binHz = 48000 / this.fftSize; // Approx
+    const binHz = 48000 / this.fftSize; // Approx 23.44 Hz per bin
     const sens = this.config.sensitivity || 1.0;
     const maxBin = freq.length - 1;
     
-    const getRangeSum = (startHz, endHz) => {
-      const start = Math.max(1, Math.min(maxBin, Math.round(startHz / binHz)));
-      const end = Math.max(start, Math.min(maxBin, Math.round(endHz / binHz)));
+    const getRangeStats = (startHz, endHz) => {
+      const start = Math.max(1, Math.min(maxBin, Math.floor(startHz / binHz)));
+      const end = Math.max(start, Math.min(maxBin, Math.ceil(endHz / binHz)));
       let sum = 0, max = 0;
       for (let i = start; i <= end; i++) {
-        sum += freq[i];
-        if(freq[i] > max) max = freq[i];
+        const v = freq[i] || 0;
+        sum += v;
+        if (v > max) max = v;
       }
       return { sum, max, count: Math.max(1, end - start + 1) };
     };
 
-    const sub = getRangeSum(20, 65);
-    const low = getRangeSum(65, 250);
-    const mid = getRangeSum(250, 2500);
-    const high = getRangeSum(2500, 16000);
+    const sub = getRangeStats(20, 65);
+    const low = getRangeStats(65, 250);
+    const mid = getRangeStats(250, 2500);
+    const high = getRangeStats(2500, 16000);
     
-    // Simple band math
-    const rawSub = Math.min(1, ((sub.sum / sub.count) / 255) * sens);
-    const rawLow = Math.min(1, ((low.sum / low.count) / 255) * sens);
-    const rawMid = Math.min(1, ((mid.sum / mid.count) / 255) * sens);
-    const rawHigh = Math.min(1, ((high.sum / high.count) / 255) * sens);
+    // Envelope Follower Logic: Track TRUE peak transients
+    const rawSub = Math.min(1.5, (sub.max / 255) * sens);
+    const rawLow = Math.min(1.5, (low.max / 255) * sens);
+    const rawMid = Math.min(1.5, (mid.max / 255) * sens);
+    const rawHigh = Math.min(1.5, (high.max / 255) * sens);
     
-    const subVal = Math.min(1, Math.pow(rawSub, 1.1) * (this.config.subGain / 100));
-    const lowVal = Math.min(1, Math.pow(rawLow, 1.1) * (this.config.lowGain / 100));
-    const midVal = Math.min(1, Math.pow(rawMid, 1.0) * (this.config.midGain / 100));
-    const highVal = Math.min(1, Math.pow(rawHigh, 1.0) * (this.config.highGain / 100));
+    // Rhythmic Onset & Spectral Flux Detection (Kick / Snare / HiHat punch)
+    const prevSub = this.prevBands.sub || 0;
+    const prevLow = this.prevBands.low || 0;
+    const prevMid = this.prevBands.mid || 0;
+    const prevHigh = this.prevBands.high || 0;
+
+    const subDiff = Math.max(0, rawSub - prevSub);
+    const lowDiff = Math.max(0, rawLow - prevLow);
+    const midDiff = Math.max(0, rawMid - prevMid);
+    const highDiff = Math.max(0, rawHigh - prevHigh);
+
+    const kickOnset = Math.min(1.0, (subDiff * 1.5 + lowDiff * 1.2) * 2.0);
+    const snareOnset = Math.min(1.0, midDiff * 2.5);
+    const hihatOnset = Math.min(1.0, highDiff * 2.5);
+
+    this.prevBands = { sub: rawSub, low: rawLow, mid: rawMid, high: rawHigh };
+    
+    const userSmoothing = this.config.smoothing !== undefined ? this.config.smoothing : 0.25;
+    const attackRate = 0.92;
+    const releaseRate = Math.max(0.04, 0.35 * (1.0 - userSmoothing));
+
+    const applyEnvelope = (current, target) => {
+      if (target > current) {
+        return current + (target - current) * attackRate;
+      } else {
+        return current + (target - current) * releaseRate;
+      }
+    };
+
+    this.envelopes.sub = applyEnvelope(this.envelopes.sub, rawSub);
+    this.envelopes.low = applyEnvelope(this.envelopes.low, rawLow);
+    this.envelopes.mid = applyEnvelope(this.envelopes.mid, rawMid);
+    this.envelopes.high = applyEnvelope(this.envelopes.high, rawHigh);
+    
+    const subGainFactor = (this.config.subGain ?? 100) / 100;
+    const lowGainFactor = (this.config.lowGain ?? 100) / 100;
+    const midGainFactor = (this.config.midGain ?? 100) / 100;
+    const highGainFactor = (this.config.highGain ?? 100) / 100;
+
+    const subVal = Math.min(1.0, this.envelopes.sub * subGainFactor);
+    const lowVal = Math.min(1.0, this.envelopes.low * lowGainFactor);
+    const midVal = Math.min(1.0, this.envelopes.mid * midGainFactor);
+    const highVal = Math.min(1.0, this.envelopes.high * highGainFactor);
     
     let peakRaw = 0;
-    for (let i = 0; i < freq.length; i++) if (freq[i] > peakRaw) peakRaw = freq[i];
-    const peak = Math.min(1, (peakRaw / 255) * sens);
+    for (let i = 0; i < freq.length; i++) {
+      if (freq[i] > peakRaw) peakRaw = freq[i];
+    }
+    const peak = Math.min(1.0, (peakRaw / 255) * sens);
     
-    const audioEnergy = Math.max(rawSub, rawLow, rawMid, rawHigh, peak);
+    const audioEnergy = Math.max(this.envelopes.sub, this.envelopes.low, this.envelopes.mid, this.envelopes.high, peak);
     const isAudioActive = audioEnergy > 0.015;
 
     this.bands = {
-      sub: subVal, low: lowVal, mid: midVal, high: highVal, peak, 
-      master: this.config.masterGain / 100,
+      rawSub: Math.min(1.0, this.envelopes.sub),
+      rawLow: Math.min(1.0, this.envelopes.low),
+      rawMid: Math.min(1.0, this.envelopes.mid),
+      rawHigh: Math.min(1.0, this.envelopes.high),
+      sub: subVal, 
+      low: lowVal, 
+      mid: midVal, 
+      high: highVal, 
+      peak, 
+      kickOnset,
+      snareOnset,
+      hihatOnset,
+      master: (this.config.masterGain ?? 100) / 100,
       energy: audioEnergy,
       isActive: isAudioActive
     };
-    
     return this.bands;
   }
 

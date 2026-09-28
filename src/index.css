@@ -43,7 +43,7 @@ body {
 /* --- MAIN DAW LAYOUT --- */
 .daw-layout {
   display: grid;
-  grid-template-rows: 52px 1fr 270px;
+  grid-template-rows: 52px 1fr 275px;
   height: 100vh;
   width: 100vw;
   background: var(--bg-dark);
@@ -497,7 +497,7 @@ body {
   flex-grow: 1;
   padding: 12px 16px;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   display: flex;
 }
 
@@ -521,8 +521,8 @@ body {
 }
 
 .device-channel.master-channel {
-  flex: 1.45 1 0;
-  min-width: 230px;
+  flex: 1.5 1 0;
+  min-width: 240px;
   border-color: #3b3b4f;
 }
 
@@ -560,14 +560,15 @@ body {
 
 .channel-body {
   display: flex;
-  padding: 8px;
-  gap: 8px;
+  padding: 6px 8px;
+  gap: 6px;
   flex-grow: 1;
+  min-height: 0;
 }
 
 .meter-container {
   width: 10px;
-  height: 85px;
+  height: 76px;
   background: #050508;
   border-radius: 3px;
   overflow: visible;
@@ -623,13 +624,13 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 38px;
+  gap: 3px;
+  width: 34px;
   flex-shrink: 0;
 }
 
 .strip-title {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -640,8 +641,8 @@ body {
   -webkit-appearance: none;
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 24px;
-  height: 85px;
+  width: 22px;
+  height: 76px;
   background: var(--bg-panel-light);
   border-radius: 4px;
   border: 1px solid var(--border-light);
@@ -651,8 +652,8 @@ body {
 
 .fader-input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 22px;
-  height: 12px;
+  width: 20px;
+  height: 10px;
   background: #d4d4d8;
   border-top: 2px solid #ffffff;
   border-bottom: 2px solid #52525b;
@@ -663,24 +664,24 @@ body {
 
 .fader-val {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8.5px;
   color: var(--text-active);
 }
 
 .matrix-routing-box {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   flex-grow: 1;
   min-width: 0;
   background: var(--bg-panel-light);
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-radius: 6px;
   border: 1px solid var(--border-light);
 }
 
 .matrix-routing-box label {
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -692,8 +693,8 @@ body {
   border: 1px solid var(--border-light);
   color: var(--text-active);
   font-family: var(--font-main);
-  font-size: 10px;
-  padding: 4px 5px;
+  font-size: 9.5px;
+  padding: 3px 4px;
   border-radius: 4px;
   outline: none;
   width: 100%;
@@ -707,17 +708,18 @@ body {
 .mod-depth-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
+  gap: 4px;
+  font-size: 9px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  margin-top: 4px;
+  margin-top: 1px;
 }
 
 .fader-mini {
   flex-grow: 1;
   accent-color: var(--accent-cyan);
   cursor: pointer;
+  height: 12px;
 }
 
 /* Gate slider: orange — threshold / danger zone */
@@ -752,14 +754,15 @@ body {
 .dsp-controls-box {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 3px;
+  justify-content: space-evenly;
+  gap: 2px;
   flex-grow: 1;
   min-width: 0;
   background: var(--bg-panel-light);
-  padding: 5px 8px;
+  padding: 4px 6px;
   border-radius: 6px;
   border: 1px solid var(--border-light);
+  overflow-y: auto;
 }
 
 .dsp-header {
@@ -768,6 +771,7 @@ body {
   color: #60a5fa;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  line-height: 1;
 }
 
 .dsp-slider-row {
@@ -780,19 +784,27 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 9px;
+  font-size: 8.5px;
   font-family: var(--font-mono);
   color: var(--text-muted);
+  line-height: 1;
 }
 
 .dsp-lbl {
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 600;
 }
 
 .dsp-val {
   color: var(--text-active);
   font-weight: 700;
+  font-size: 8px;
+}
+
+.dsp-slider {
+  height: 12px;
+  margin: 0;
+  cursor: pointer;
 }
 
 .dsp-slider.sensitivity-slider {

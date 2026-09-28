@@ -55,9 +55,15 @@ const MOD_TARGETS = [
   { id: 'warp_tunnel', name: '3D Warp Thrust & Tunnel Speed' },
   { id: 'kaleido_facets', name: 'Kaleidoscope Facets & Mirror Symmetry' },
   { id: 'laser_beams', name: 'Starburst Laser Streaks & Filament Lightning' },
-  { id: 'particle_mass', name: 'Particle Mass & Stardust Sparkle' },
+  { id: 'particle_shape_morph', name: 'Particle Shape Morph & Geometry Trigger' },
+  { id: 'particle_size', name: 'Particle 3D Size & Scale Dynamics' },
+  { id: 'particle_speed', name: 'Particle Swirl & Orbit Speed' },
+  { id: 'particle_mass', name: 'Particle Mass & Force Field Pull' },
+  { id: 'particle_turbulence', name: 'Particle Noise & Jitter Chaos' },
   { id: 'color_cycle', name: 'Chromatic Hue Cycle & Color Jump' },
-  { id: 'film_strobe', name: 'Film Strobe & Glow Bloom' }
+  { id: 'film_strobe', name: 'Film Strobe & Glow Bloom' },
+  { id: 'geo_burst', name: 'Generative Geometric Burst' },
+  { id: 'digital_grid', name: 'Generative Hologram Grid Overlay' }
 ];
 
 export default function App() {
@@ -111,11 +117,11 @@ export default function App() {
   // Live RMS Audio Levels for Strips
   const [levels, setLevels] = useState({ low: 0, mid: 0, high: 0, peak: 0, sub: 0 });
 
-  // EQ Band Gain Sensitivities - 0% by default so visualizer is clean/still until user turns up gain
-  const [subGain, setSubGain] = useState(0);
-  const [lowGain, setLowGain] = useState(0);
-  const [midGain, setMidGain] = useState(0);
-  const [highGain, setHighGain] = useState(0);
+  // EQ Band Gain Sensitivities - 100% by default for immediate responsive visualization
+  const [subGain, setSubGain] = useState(100);
+  const [lowGain, setLowGain] = useState(100);
+  const [midGain, setMidGain] = useState(100);
+  const [highGain, setHighGain] = useState(100);
   const [masterGain, setMasterGain] = useState(100);
 
   // Global DSP Analysis Parameters (audio-visualizer.com inspired)
@@ -124,7 +130,7 @@ export default function App() {
   const [fftDetail, setFftDetail] = useState(2048);    // 128 to 2048 FFT resolution (2^N)
 
   // Ableton-style Modular Matrix Routing: map audio sources to visual targets with Threshold Gate & Depth
-  // Default target: 'none' (blank initially)
+  // Default target: 'none' (clean blank state initially per user workflow)
   const [modMatrix, setModMatrix] = useState({
     sub: { target: 'none', amount: 150, gate: 15, intensity: 100 },
     low: { target: 'none', amount: 150, gate: 20, intensity: 100 },
@@ -170,10 +176,19 @@ export default function App() {
     tunnelSpeed: 1.0,
     tunnelCoreSize: 20,
 
-    // 3. Particle Swarm
-    particleSize: 3,
+    // 3. Particle Swarm & 3D Instanced Mesh Shapes
+    particleShape: 'spheres',
+    particleSize: 2.0,
+    particleMass: 1.0,
     particleSwirl: 1.0,
+    particleTurbulence: 0.5,
+    particleCount: 1000,
     filamentDistance: 140,
+
+    // Global FX Rig Overrides per Layer
+    geoBurstShape: 'icosahedron',
+    laserCount: 24,
+    gridStyle: 'floor_ceiling',
 
     // 4. Cyber Wireframe
     wireframeCols: 32,
@@ -475,6 +490,35 @@ export default function App() {
     }, 400);
     return () => clearInterval(watchdog);
   }, [renderLoop]);
+
+  // Live real-time UI synchronization for VU Meters, Master meter, Peak indicator, and Gate indicators
+  useEffect(() => {
+    if (!isRunning) return;
+    let animId;
+    let lastTime = 0;
+    const syncAudioLevels = (now) => {
+      animId = requestAnimationFrame(syncAudioLevels);
+      if (now - lastTime > 30) { // ~33 FPS UI sync for optimal performance & responsiveness
+        lastTime = now;
+        const b = audioStore.bands;
+        if (b) {
+          setLevels({
+            sub: b.sub ?? 0,
+            low: b.low ?? 0,
+            mid: b.mid ?? 0,
+            high: b.high ?? 0,
+            rawSub: b.rawSub ?? 0,
+            rawLow: b.rawLow ?? 0,
+            rawMid: b.rawMid ?? 0,
+            rawHigh: b.rawHigh ?? 0,
+            peak: b.peak ?? 0
+          });
+        }
+      }
+    };
+    animId = requestAnimationFrame(syncAudioLevels);
+    return () => cancelAnimationFrame(animId);
+  }, [isRunning]);
 
   // Handle Canvas Resize
   useEffect(() => {
@@ -844,7 +888,7 @@ export default function App() {
         <div className="viz-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
           {isRunning && (
             <VisualizerCanvas 
-              layers={[{ id: 1, engine: activeEngine, modMatrix, params }]} 
+              layers={[{ id: 1, engine: activeEngine, modMatrix, params, palette: PALETTES.find(p => p.id === activePalette) }]} 
               masterParams={params} 
             />
           )}
@@ -1485,27 +1529,43 @@ export default function App() {
               {activeEngine === 'particles' && (
                 <div className="rack-params-grid">
                   <div className="param-device-box">
-                    <h4>Particle Cloud Density</h4>
+                    <h4>3D Particle Geometry & Density</h4>
+                    <div className="param-slider-row">
+                      <label>3D Particle Shape:</label>
+                      <select
+                        value={params.particleShape || 'spheres'}
+                        onChange={e => setParams({ ...params, particleShape: e.target.value })}
+                        className="matrix-select"
+                        style={{ background: '#111827', color: '#00ffcc', border: '1px solid #374151', borderRadius: '4px', padding: '2px 6px' }}
+                      >
+                        <option value="spheres">Spheres (Smooth 3D Balls)</option>
+                        <option value="cubes">Cubes (Digital Blocks)</option>
+                        <option value="tetrahedrons">Tetrahedrons (Sharp Pyramids)</option>
+                        <option value="rings">Torus Rings (Harmonic Donuts)</option>
+                        <option value="dodecahedrons">Dodecahedrons (12-Faceted Gem)</option>
+                        <option value="icosahedrons">Icosahedrons (20-Faceted Core)</option>
+                      </select>
+                    </div>
                     <div className="param-slider-row">
                       <label>Particle Count:</label>
                       <input
-                        type="range" min="100" max="1500" step="50" value={params.particleCount ?? 800}
+                        type="range" min="100" max="2000" step="50" value={params.particleCount ?? 1000}
                         onChange={e => setParams({ ...params, particleCount: Number(e.target.value) })}
                       />
-                      <span>{params.particleCount ?? 800}</span>
+                      <span>{params.particleCount ?? 1000}</span>
                     </div>
                     <div className="param-slider-row">
-                      <label>Stardust Grain Size:</label>
+                      <label>3D Base Size:</label>
                       <input
-                        type="range" min="1" max="8" step="1" value={params.particleSize ?? 3}
+                        type="range" min="0.5" max="6.0" step="0.1" value={params.particleSize ?? 2.0}
                         onChange={e => setParams({ ...params, particleSize: Number(e.target.value) })}
                       />
-                      <span>{params.particleSize ?? 3}px</span>
+                      <span>{(params.particleSize ?? 2.0).toFixed(1)}x</span>
                     </div>
                   </div>
 
                   <div className="param-device-box">
-                    <h4>Fluid Dynamics & Filaments</h4>
+                    <h4>Physics, Swirl & Turbulence</h4>
                     <div className="param-slider-row">
                       <label>Vortex Swirl Rate:</label>
                       <input
@@ -1515,12 +1575,60 @@ export default function App() {
                       <span>{(params.particleSwirl ?? 1.0).toFixed(1)}x</span>
                     </div>
                     <div className="param-slider-row">
-                      <label>Filament Distance:</label>
+                      <label>Particle Mass Pull:</label>
                       <input
-                        type="range" min="50" max="300" step="10" value={params.filamentDistance ?? 140}
-                        onChange={e => setParams({ ...params, filamentDistance: Number(e.target.value) })}
+                        type="range" min="0.1" max="4.0" step="0.1" value={params.particleMass ?? 1.0}
+                        onChange={e => setParams({ ...params, particleMass: Number(e.target.value) })}
                       />
-                      <span>{params.filamentDistance ?? 140}px</span>
+                      <span>{(params.particleMass ?? 1.0).toFixed(1)}x</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Turbulence Jitter:</label>
+                      <input
+                        type="range" min="0.0" max="3.0" step="0.1" value={params.particleTurbulence ?? 0.5}
+                        onChange={e => setParams({ ...params, particleTurbulence: Number(e.target.value) })}
+                      />
+                      <span>{(params.particleTurbulence ?? 0.5).toFixed(1)}</span>
+                    </div>
+                  </div>
+
+                  <div className="param-device-box">
+                    <h4>Global FX Rig Overrides</h4>
+                    <div className="param-slider-row">
+                      <label>Geo Burst Geometry:</label>
+                      <select
+                        value={params.geoBurstShape || 'icosahedron'}
+                        onChange={e => setParams({ ...params, geoBurstShape: e.target.value })}
+                        className="matrix-select"
+                        style={{ background: '#111827', color: '#ff007f', border: '1px solid #374151', borderRadius: '4px', padding: '2px 6px' }}
+                      >
+                        <option value="icosahedron">Icosahedron Crystal</option>
+                        <option value="octahedron">Octahedron Prism</option>
+                        <option value="dodecahedron">Dodecahedron Shell</option>
+                        <option value="torusKnot">Torus Knot Vortex</option>
+                        <option value="tetrahedron">Tetrahedron Pyramid</option>
+                      </select>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Laser Beams Count:</label>
+                      <input
+                        type="range" min="12" max="64" step="4" value={params.laserCount ?? 24}
+                        onChange={e => setParams({ ...params, laserCount: Number(e.target.value) })}
+                      />
+                      <span>{params.laserCount ?? 24} rays</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <label>Digital Grid Style:</label>
+                      <select
+                        value={params.gridStyle || 'floor_ceiling'}
+                        onChange={e => setParams({ ...params, gridStyle: e.target.value })}
+                        className="matrix-select"
+                        style={{ background: '#111827', color: '#3b82f6', border: '1px solid #374151', borderRadius: '4px', padding: '2px 6px' }}
+                      >
+                        <option value="floor_ceiling">Holographic Floor & Ceiling</option>
+                        <option value="floor_only">Sub-Floor Grid Only</option>
+                        <option value="grid_cube">Cyber Matrix Grid Chamber</option>
+                      </select>
                     </div>
                   </div>
                 </div>
