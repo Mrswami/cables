@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import VisualizerCanvas from './VisualizerCanvas';
+import SpectralizerBar from './SpectralizerBar';
 import { audioStore } from './AudioStore';
 import './index.css';
 
@@ -849,6 +850,9 @@ export default function App() {
           )}
         </div>
         <canvas ref={canvasRef} className="viz-canvas" style={{ pointerEvents: 'none', display: 'none' }} />
+
+        {/* Stable real-time FFT Spectralizer on bottom of screen */}
+        {isRunning && <SpectralizerBar modMatrix={modMatrix} levels={levels} />}
 
         {/* STANDBY / IDLE ONBOARDING SCREEN */}
         {!isRunning && (
