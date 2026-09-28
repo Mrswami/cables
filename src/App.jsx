@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import VisualizerCanvas from './VisualizerCanvas';
+import { audioStore } from './AudioStore';
 import './index.css';
 
 // --- ICONS ---
@@ -44,6 +46,7 @@ const PALETTES = [
 
 // --- MODULATION MATRIX TARGETS (DISTINCT VISUAL PATTERNS) ---
 const MOD_TARGETS = [
+  { id: 'none', name: '-- Blank (No FX Route) --' },
   { id: 'reverse_spin', name: 'Spin Direction: Reverse (Counter-Clockwise)' },
   { id: 'vortex_spin', name: 'Spin Direction: Forward (Clockwise Accelerator)' },
   { id: 'shockwave', name: 'Radial Shockwave & Pulse Explosion' },
@@ -86,17 +89,16 @@ export default function App() {
   const [isTauriEnv, setIsTauriEnv] = useState(false);
 
   useEffect(() => {
-    try {
-      if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
+    // Attempt to invoke the Tauri command directly. It will fail on the web.
+    invoke('get_audio_devices')
+      .then((devices) => {
         setIsTauriEnv(true);
-        invoke('get_audio_devices').then((devices) => {
-          setNativeDevices(devices);
-          if (devices.length > 0) {
-            setSelectedNativeDevice(devices[0]);
-          }
-        }).catch(err => console.error("Failed to get audio devices", err));
-      }
-    } catch(e) {}
+        setNativeDevices(devices);
+        if (devices.length > 0) {
+          setSelectedNativeDevice(devices[0]);
+        }
+      })
+      .catch((err) => console.log("Not in Tauri or failed to get audio devices", err));
   }, []);
 
   const handleDeviceChange = (e) => {
@@ -108,11 +110,11 @@ export default function App() {
   // Live RMS Audio Levels for Strips
   const [levels, setLevels] = useState({ low: 0, mid: 0, high: 0, peak: 0, sub: 0 });
 
-  // EQ Band Gain Sensitivities
-  const [subGain, setSubGain] = useState(120);
-  const [lowGain, setLowGain] = useState(100);
-  const [midGain, setMidGain] = useState(100);
-  const [highGain, setHighGain] = useState(100);
+  // EQ Band Gain Sensitivities - 0% by default so visualizer is clean/still until user turns up gain
+  const [subGain, setSubGain] = useState(0);
+  const [lowGain, setLowGain] = useState(0);
+  const [midGain, setMidGain] = useState(0);
+  const [highGain, setHighGain] = useState(0);
   const [masterGain, setMasterGain] = useState(100);
 
   // Global DSP Analysis Parameters (audio-visualizer.com inspired)
@@ -121,11 +123,12 @@ export default function App() {
   const [fftDetail, setFftDetail] = useState(2048);    // 128 to 2048 FFT resolution (2^N)
 
   // Ableton-style Modular Matrix Routing: map audio sources to visual targets with Threshold Gate & Depth
+  // Default target: 'none' (blank initially)
   const [modMatrix, setModMatrix] = useState({
-    sub: { target: 'warp_tunnel', amount: 150, gate: 15, intensity: 120 },
-    low: { target: 'shockwave', amount: 150, gate: 20, intensity: 120 },
-    mid: { target: 'wave_current', amount: 130, gate: 15, intensity: 100 },
-    high: { target: 'reverse_spin', amount: 180, gate: 10, intensity: 130 }
+    sub: { target: 'none', amount: 150, gate: 15, intensity: 100 },
+    low: { target: 'none', amount: 150, gate: 20, intensity: 100 },
+    mid: { target: 'none', amount: 130, gate: 15, intensity: 100 },
+    high: { target: 'none', amount: 180, gate: 10, intensity: 100 }
   });
 
   // Dedicated Visual Engine Parameters (Engine-Specific & Tailored)
@@ -190,6 +193,135 @@ export default function App() {
     oscilloSpread: 1.0
   });
 
+  // Multi-Visualizer Secondary Edge/Border Layer Config
+  const [edgeLayerConfig, setEdgeLayerConfig] = useState({
+    enabled: false, // Turned off by default
+    style: 'bars',
+    placement: 'top_bottom',
+    minFreqHz: 2500,
+    maxFreqHz: 16000,
+    barCount: 16,
+    barHeight: 120,
+    barGap: 4,
+    gain: 130,
+    showPeaks: true
+  });
+
+  // User Preset Management System (Save / Load / Export / Import JSON)
+  const [userPresets, setUserPresets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cables_user_presets');
+      if (saved) return JSON.parse(saved);
+    } catch (_) { }
+    return [];
+  });
+  const [newPresetName, setNewPresetName] = useState('');
+  const fileInputRef = useRef(null);
+
+  const saveUserPreset = (presetName) => {
+    const title = (presetName || newPresetName).trim() || `Custom Preset ${userPresets.length + 1}`;
+    const newPreset = {
+      id: 'preset_' + Date.now(),
+      name: title,
+      createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      activeEngine,
+      activePalette,
+      subGain, lowGain, midGain, highGain, masterGain,
+      sensitivity, smoothing, fftDetail,
+      modMatrix,
+      params,
+      edgeLayerConfig
+    };
+    const updated = [newPreset, ...userPresets];
+    setUserPresets(updated);
+    try {
+      localStorage.setItem('cables_user_presets', JSON.stringify(updated));
+    } catch (_) { }
+    setNewPresetName('');
+  };
+
+  const loadUserPreset = (preset) => {
+    if (!preset) return;
+    if (preset.activeEngine) setActiveEngine(preset.activeEngine);
+    if (preset.activePalette) setActivePalette(preset.activePalette);
+    if (preset.subGain !== undefined) setSubGain(preset.subGain);
+    if (preset.lowGain !== undefined) setLowGain(preset.lowGain);
+    if (preset.midGain !== undefined) setMidGain(preset.midGain);
+    if (preset.highGain !== undefined) setHighGain(preset.highGain);
+    if (preset.masterGain !== undefined) setMasterGain(preset.masterGain);
+    if (preset.sensitivity !== undefined) setSensitivity(preset.sensitivity);
+    if (preset.smoothing !== undefined) setSmoothing(preset.smoothing);
+    if (preset.fftDetail !== undefined) setFftDetail(preset.fftDetail);
+    if (preset.modMatrix) setModMatrix(preset.modMatrix);
+    if (preset.params) setParams(preset.params);
+    if (preset.edgeLayerConfig) setEdgeLayerConfig(preset.edgeLayerConfig);
+  };
+
+  const deleteUserPreset = (id) => {
+    const updated = userPresets.filter(p => p.id !== id);
+    setUserPresets(updated);
+    try {
+      localStorage.setItem('cables_user_presets', JSON.stringify(updated));
+    } catch (_) { }
+  };
+
+  const exportPresetJSON = (preset) => {
+    const jsonStr = JSON.stringify(preset, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(preset.name || 'preset').toLowerCase().replace(/\s+/g, '_')}.cables.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importPresetJSON = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (parsed && typeof parsed === 'object') {
+          const imported = {
+            id: 'preset_' + Date.now(),
+            name: parsed.name ? `${parsed.name} (Imported)` : 'Imported Preset',
+            createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            activeEngine: parsed.activeEngine || 'sacred',
+            activePalette: parsed.activePalette || 'cyberpunk',
+            subGain: parsed.subGain ?? 0,
+            lowGain: parsed.lowGain ?? 0,
+            midGain: parsed.midGain ?? 0,
+            highGain: parsed.highGain ?? 0,
+            masterGain: parsed.masterGain ?? 100,
+            sensitivity: parsed.sensitivity ?? 1.0,
+            smoothing: parsed.smoothing ?? 0.25,
+            fftDetail: parsed.fftDetail ?? 2048,
+            modMatrix: parsed.modMatrix || {
+              sub: { target: 'none', amount: 150, gate: 15, intensity: 100 },
+              low: { target: 'none', amount: 150, gate: 20, intensity: 100 },
+              mid: { target: 'none', amount: 130, gate: 15, intensity: 100 },
+              high: { target: 'none', amount: 180, gate: 10, intensity: 100 }
+            },
+            params: parsed.params || params,
+            edgeLayerConfig: parsed.edgeLayerConfig || edgeLayerConfig
+          };
+          const updated = [imported, ...userPresets];
+          setUserPresets(updated);
+          localStorage.setItem('cables_user_presets', JSON.stringify(updated));
+          loadUserPreset(imported);
+        }
+      } catch (err) {
+        alert('Invalid preset JSON file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   // Dynamic particle buffer state for particle engine
   const particlesRef = useRef([]);
 
@@ -207,6 +339,7 @@ export default function App() {
     fftDetail,
     modMatrix,
     params,
+    edgeLayerConfig,
     time: 0,
     rot: 0,
     tunnelZ: 0
@@ -226,7 +359,13 @@ export default function App() {
     stateRef.current.fftDetail = fftDetail;
     stateRef.current.modMatrix = modMatrix;
     stateRef.current.params = params;
-  }, [activeEngine, activePalette, subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing, fftDetail, modMatrix, params]);
+    stateRef.current.edgeLayerConfig = edgeLayerConfig;
+    
+    // Sync to new AudioStore pipeline
+    audioStore.updateConfig({
+      subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing
+    });
+  }, [activeEngine, activePalette, subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing, fftDetail, modMatrix, params, edgeLayerConfig]);
 
   // Request Screen WakeLock to prevent browser / display from sleeping
   const requestWakeLock = async () => {
@@ -284,14 +423,14 @@ export default function App() {
       if (document.hidden) {
         // Tab moved to background: keep Web Audio context awake & force continuous tick
         if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-          audioCtxRef.current.resume().catch(() => {});
+          audioCtxRef.current.resume().catch(() => { });
         }
         if (stateRef.current.isRunning && !bgTimerRef.current) {
           bgTimerRef.current = setInterval(() => {
             if (renderFrameRef.current) {
               try {
                 renderFrameRef.current();
-              } catch (_) {}
+              } catch (_) { }
             }
           }, 1000 / 30); // 30fps steady background clock
         }
@@ -329,7 +468,7 @@ export default function App() {
         }
         // Keep audio context awake
         if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-          audioCtxRef.current.resume().catch(() => {});
+          audioCtxRef.current.resume().catch(() => { });
         }
       }
     }, 400);
@@ -368,7 +507,7 @@ export default function App() {
       streamRef.current.getTracks().forEach(t => t.stop());
     }
     if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current.close().catch(() => { });
     }
     audioCtxRef.current = null;
     analyserRef.current = null;
@@ -388,7 +527,7 @@ export default function App() {
   const buildAudioGraph = useCallback((stream) => {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(() => {});
+      audioCtx.resume().catch(() => { });
     }
 
     const analyser = audioCtx.createAnalyser();
@@ -441,6 +580,7 @@ export default function App() {
     setError('');
     stopAudio();
     try {
+      audioStore.connectTauri();
       const ws = new WebSocket('ws://127.0.0.1:3030');
       ws.binaryType = 'arraybuffer';
       ws.onmessage = (e) => {
@@ -507,859 +647,45 @@ export default function App() {
     return isNaN(modSum) ? 0 : modSum;
   };
 
-  // Single Frame Render Engine
-  const renderFrame = () => {
-    if (!canvasRef.current || !dataArrayRef.current || !waveDataArrayRef.current) return;
-    lastRenderTimestampRef.current = performance.now();
-
-    const freqData = dataArrayRef.current;
-    const waveData = waveDataArrayRef.current;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width;
-    const H = canvas.height;
-    if (W === 0 || H === 0) return;
-    const cx = W / 2;
-    const cy = H / 2;
-
-    const st = stateRef.current;
-    st.time += 0.015 * st.params.speed;
-
-    // Calculate dynamic frequency bin resolution and acoustic sub-bands
-    const sampleRate = audioCtxRef.current?.sampleRate || 48000;
-    const fftSize = analyser.fftSize || 2048;
+  // Dynamic Frequency Slice Extractor for Edge & Multi-Visualizer Compositor
+  const getFrequencySlice = (freqData, sampleRate, fftSize, minHz, maxHz, numBars, sens, gain) => {
+    if (!freqData || freqData.length === 0) return new Array(numBars).fill(0);
     const binHz = sampleRate / fftSize;
     const maxBin = freqData.length - 1;
-    const sens = Number(st.sensitivity) || 1.0;
+    const startBin = Math.max(1, Math.min(maxBin, Math.round(minHz / binHz)));
+    const endBin = Math.max(startBin, Math.min(maxBin, Math.round(maxHz / binHz)));
+    const binSpan = Math.max(1, endBin - startBin + 1);
 
-    // 1. Sub Bass: 20 Hz - 65 Hz - strictly sub-bass & 808 sub drops
-    const subStart = Math.max(1, Math.min(maxBin, Math.round(20 / binHz)));
-    const subEnd = Math.max(subStart, Math.min(maxBin, Math.round(65 / binHz)));
-    let subSum = 0, subMax = 0;
-    for (let i = subStart; i <= subEnd; i++) {
-      const v = freqData[i] || 0;
-      subSum += v;
-      if (v > subMax) subMax = v;
+    const result = [];
+    const barsPerBin = binSpan / numBars;
+
+    for (let b = 0; b < numBars; b++) {
+      const bStart = Math.floor(startBin + b * barsPerBin);
+      const bEnd = Math.max(bStart, Math.floor(startBin + (b + 1) * barsPerBin));
+      let sum = 0;
+      let count = 0;
+      for (let i = bStart; i <= bEnd; i++) {
+        if (i <= maxBin) {
+          sum += freqData[i] || 0;
+          count++;
+        }
+      }
+      const avg = count > 0 ? sum / count : 0;
+      const norm = Math.min(1.0, (avg / 255) * sens * (gain / 100));
+      result.push(norm);
     }
-    const rawSub = Math.min(1, ((subSum / Math.max(1, subEnd - subStart + 1)) / 255) * sens);
-    const subPunch = Math.max(0, rawSub - (prevBandsRef.current.sub || 0));
-    const subVal = Math.min(1, (Math.pow(rawSub, 1.1) * (st.subGain / 100) * 1.5) + (subPunch * 0.4));
-
-    // 2. Low / Bass: 65 Hz - 250 Hz - punchy kick transients & basslines
-    const lowStart = Math.max(subEnd + 1, Math.min(maxBin, Math.round(65 / binHz)));
-    const lowEnd = Math.max(lowStart, Math.min(maxBin, Math.round(250 / binHz)));
-    let lowSum = 0, lowMax = 0;
-    for (let i = lowStart; i <= lowEnd; i++) {
-      const v = freqData[i] || 0;
-      lowSum += v;
-      if (v > lowMax) lowMax = v;
-    }
-    const rawLow = Math.min(1, ((lowSum / Math.max(1, lowEnd - lowStart + 1)) / 255) * sens);
-    const lowPunch = Math.max(0, rawLow - (prevBandsRef.current.low || 0));
-    const lowVal = Math.min(1, (Math.pow(rawLow, 1.1) * (st.lowGain / 100) * 1.4) + (lowPunch * 0.35));
-
-    // 3. Mids / Vocals & Synths: 250 Hz - 2500 Hz
-    const midStart = Math.max(lowEnd + 1, Math.min(maxBin, Math.round(250 / binHz)));
-    const midEnd = Math.max(midStart, Math.min(maxBin, Math.round(2500 / binHz)));
-    let midSum = 0;
-    for (let i = midStart; i <= midEnd; i++) {
-      midSum += freqData[i] || 0;
-    }
-    const rawMid = Math.min(1, ((midSum / Math.max(1, midEnd - midStart + 1)) / 255) * sens);
-    const midPunch = Math.max(0, rawMid - (prevBandsRef.current.mid || 0));
-    const midVal = Math.min(1, (Math.pow(rawMid, 1.0) * (st.midGain / 100) * 1.4) + (midPunch * 0.3));
-
-    // 4. Highs / Hi-Hats & Cymbals: 2500 Hz - 16000 Hz
-    const highStart = Math.max(midEnd + 1, Math.min(maxBin, Math.round(2500 / binHz)));
-    const highEnd = Math.max(highStart, Math.min(maxBin, Math.round(16000 / binHz)));
-    let highSum = 0, highMax = 0;
-    let highCount = 0;
-    const highStep = Math.max(1, Math.floor((highEnd - highStart) / 120));
-    for (let i = highStart; i <= highEnd; i += highStep) {
-      const v = freqData[i] || 0;
-      // High-shelf loudness weighting: compensate for natural 1/f spectral rolloff
-      const weight = 1 + ((i - highStart) / Math.max(1, highEnd - highStart)) * 1.8;
-      const weightedV = Math.min(255, v * weight);
-      highSum += weightedV;
-      if (weightedV > highMax) highMax = weightedV;
-      highCount++;
-    }
-    const avgHigh = (highSum / Math.max(1, highCount)) / 255;
-    const peakHigh = highMax / 255;
-    // Blend avg (35%) and peak (65%) so hi-hat transients spike clearly
-    const rawHigh = Math.min(1, ((avgHigh * 0.35) + (peakHigh * 0.65)) * sens);
-    const highPunch = Math.max(0, rawHigh - (prevBandsRef.current.high || 0));
-    const highVal = Math.min(1, (rawHigh * (st.highGain / 100) * 1.5) + (highPunch * 0.4));
-
-    // Store current frame's raw band levels for next frame's decoupled punch detection
-    prevBandsRef.current = {
-      sub: rawSub,
-      low: rawLow,
-      mid: rawMid,
-      high: rawHigh
-    };
-
-    // Fast non-allocating peak search bound to current buffer size
-    let peakRaw = 0;
-    const bufLen = freqData.length;
-    for (let i = 0; i < bufLen; i++) {
-      if (freqData[i] > peakRaw) peakRaw = freqData[i];
-    }
-    const peak = Math.min(1, (peakRaw / 255) * sens);
-
-    const bands = {
-      sub: subVal,
-      low: lowVal,
-      mid: midVal,
-      high: highVal,
-      master: (st.masterGain / 100)
-    };
-
-    // Throttle React state update to ~30fps so React re-renders never choke or freeze the 60fps canvas thread
-    const now = performance.now();
-    if (now - lastUiUpdateRef.current >= 33) {
-      lastUiUpdateRef.current = now;
-      setLevels({
-        sub: subVal,
-        low: lowVal,
-        mid: midVal,
-        high: highVal,
-        peak
-      });
-    }
-
-    try {
-
-    // --- MODULATION MATRIX VALUE RESOLUTION ---
-    // Reverse vs Forward Spin
-    const revSpinMod = getModValue('reverse_spin', bands);
-    const fwdSpinMod = getModValue('vortex_spin', bands);
-    const spinDelta = (fwdSpinMod - revSpinMod) * 0.15; // Allows counter-clockwise spin!
-
-    // Shockwave & Pulse Explosion
-    const shockMod = getModValue('shockwave', bands);
-
-    // Sinusoidal Wave & Fluid Undulation
-    const waveMod = getModValue('wave_current', bands);
-
-    // 3D Warp Thrust & Tunnel Speed
-    const warpMod = getModValue('warp_tunnel', bands);
-
-    // Kaleidoscope Facets & Mirror Symmetry
-    const kaleidoMod = getModValue('kaleido_facets', bands);
-
-    // Starburst Laser Streaks & Filament Lightning
-    const laserMod = getModValue('laser_beams', bands);
-
-    // Particle Mass & Sparkle
-    const massMod = getModValue('particle_mass', bands);
-
-    // Chromatic Hue Cycle & Jump
-    const hueJumpMod = getModValue('color_cycle', bands);
-
-    // Film Strobe & Glow Bloom
-    const strobeBloomMod = getModValue('film_strobe', bands);
-
-    const bloomMod = (strobeBloomMod || 0) * 1.5 + (st.params.bloom / 100);
-    const chromaMod = (st.params.chroma / 100);
-    const grainMod = (st.params.grain / 100);
-
-    // Angular accumulation with bidirectional spin
-    st.rot += 0.005 + spinDelta;
-    st.tunnelZ += (0.05 + warpMod * 0.4) * (st.activeEngine === 'tunnel' ? (st.params.tunnelSpeed || st.params.speed) : st.params.speed);
-
-    // Palette Colors Lookup & Interpolator (with Hue Jump Modulation)
-    const currentPal = PALETTES.find(p => p.id === st.activePalette) || PALETTES[0];
-    const palColors = currentPal.colors;
-    const colorOffset = Math.floor(hueJumpMod * palColors.length + st.time * 2);
-    const c0 = palColors[(0 + colorOffset) % palColors.length];
-    const c1 = palColors[(1 + colorOffset) % palColors.length];
-
-    // Specterr Contour & Transparency Parameters (app.specterr.com)
-    const outWidth = Math.max(0, Number(st.params.outlineWidth ?? 6));
-    const outSegs = Math.max(0, Number(st.params.outlineSegments ?? 16));
-    const rawOutColor = st.params.outlineColor ?? '#000000';
-    const outColor = rawOutColor === 'palette' ? c0 : rawOutColor;
-    const isTransparent = st.params.transparentMode ?? true;
-    const transparencyPercent = Number(st.params.transparency ?? 40);
-    const fillAlpha = isTransparent ? Math.max(0, 1 - (transparencyPercent / 100)) : 1.0;
-
-    // Helper for applying Specterr outline segmentation dash pattern
-    const applySegments = (targetCtx, segCount, baseRadius = 100) => {
-      if (segCount > 0) {
-        const segDash = Math.max(4, (baseRadius * Math.PI * 2) / (segCount * 2.8));
-        const segGap = Math.max(3, 4 + bands.high * 8);
-        targetCtx.setLineDash([segDash, segGap]);
-      } else {
-        targetCtx.setLineDash([]);
-      }
-    };
-
-    // Background Decay & Trail Rendering (Never let canvas blow out to pure white)
-    ctx.save();
-    if (st.params.strobe > 0 && peak > 0.92 && Math.random() < st.params.strobe / 100) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.15 * Math.min(bloomMod, 1.5)})`;
-      ctx.fillRect(0, 0, W, H);
-    } else {
-      // High-contrast deep dark trailing decay - adapts dynamically if transparency mode is enabled
-      const bgOpacity = isTransparent ? 0.32 : 0.22;
-      ctx.fillStyle = `rgba(8, 8, 12, ${bgOpacity})`;
-      ctx.fillRect(0, 0, W, H);
-    }
-    ctx.restore();
-
-    // --- GLOBAL LAYOUT TRANSFORM (ECHOWAVE INSPIRED) ---
-    ctx.save();
-    const xOff = (st.params.xOffset ?? 0) / 100 * W;
-    const yOff = (st.params.yOffset ?? 0) / 100 * H;
-    const zoomVal = st.params.zoom ?? 1.0;
-    ctx.translate(cx + xOff, cy + yOff);
-    ctx.scale(zoomVal, zoomVal);
-    ctx.translate(-cx, -cy);
-
-    // --- ENGINE 1: SACRED FRACTALS & MANDALA SYMMETRY ---
-    if (st.activeEngine === 'sacred') {
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(st.rot);
-
-      const warpThrust = 1 + warpMod * 0.9;
-      const petals = Math.max(3, Math.round((st.params.sacredPetals || 6) + kaleidoMod * 16 + bands.mid * 4));
-      const rings = Math.max(2, Math.round((st.params.sacredRings || 8) + shockMod * 8 + bands.low * 6));
-      const baseRadius = Math.min(W, H) * 0.28 * (st.params.sacredScale || 1.0) * warpThrust * (1 + bands.sub * 0.75 + shockMod * 0.5);
-      const strokeW = (st.params.sacredLineWidth || 2) * (1 + massMod * 1.5);
-
-      // 3D Receding Warp Depth Portal (when warp_tunnel is modulated)
-      if (warpMod > 0.05) {
-        ctx.save();
-        for (let d = 3; d >= 1; d--) {
-          const depthScale = 1 + d * warpMod * 0.45;
-          ctx.strokeStyle = palColors[(d + colorOffset) % palColors.length];
-          ctx.lineWidth = 1 + warpMod * 2;
-          ctx.globalAlpha = 0.35 / d;
-          ctx.beginPath();
-          ctx.arc(0, 0, baseRadius * depthScale, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      // Shockwave Pulse Explosion Ring (when shockwave is modulated)
-      if (shockMod > 0.08) {
-        ctx.save();
-        ctx.strokeStyle = palColors[colorOffset % palColors.length];
-        ctx.lineWidth = 2 + shockMod * 6;
-        ctx.shadowBlur = 24 * Math.min(bloomMod, 2);
-        ctx.shadowColor = palColors[colorOffset % palColors.length];
-        ctx.beginPath();
-        ctx.arc(0, 0, baseRadius * (1 + shockMod * 0.6), 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      for (let r = 1; r <= rings; r++) {
-        const ringRad = (baseRadius / rings) * r * (1 + bands.low * 0.6);
-        const col = palColors[(r - 1 + colorOffset) % palColors.length];
-
-        ctx.strokeStyle = col;
-        ctx.lineWidth = (strokeW + bloomMod * 2.5) * (1 + bands.low * 0.5);
-        ctx.shadowBlur = 14 * Math.min(bloomMod, 2);
-        ctx.shadowColor = col;
-
-        for (let p = 0; p < petals; p++) {
-          const angle = (p / petals) * Math.PI * 2;
-          const waveRipple = Math.sin(angle * 4 + st.time * 6) * (waveMod * 35);
-          const px = Math.cos(angle) * (ringRad + waveRipple);
-          const py = Math.sin(angle) * (ringRad + waveRipple);
-          const petalRadius = (ringRad * 0.5) * (1 + bands.mid * 1.5 + massMod * 0.8);
-
-          // Apply Specterr outline segments if enabled
-          applySegments(ctx, outSegs, petalRadius);
-
-          // Layer 1: Specterr Contrast Outline Stroke
-          if (outWidth > 0) {
-            ctx.save();
-            ctx.strokeStyle = outColor;
-            ctx.lineWidth = ((strokeW + bloomMod * 2.5) * (1 + bands.low * 0.5)) + outWidth * 2;
-            ctx.shadowBlur = 0;
-            ctx.beginPath();
-            ctx.arc(px, py, Math.max(1, petalRadius), 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-          }
-
-          // Layer 2: Main Paletted Stroke with Transparency fill
-          ctx.beginPath();
-          ctx.arc(px, py, Math.max(1, petalRadius), 0, Math.PI * 2);
-          if (fillAlpha > 0.05 && fillAlpha < 0.99) {
-            ctx.save();
-            ctx.fillStyle = col;
-            ctx.globalAlpha = 0.08 * fillAlpha;
-            ctx.fill();
-            ctx.restore();
-          }
-          ctx.stroke();
-
-          // Laser Starburst filaments
-          if (laserMod > 0.08 || (r % 2 === 0 && bands.high > 0.12)) {
-            const innerCol = palColors[(r + 1 + colorOffset) % palColors.length];
-            ctx.save();
-            ctx.fillStyle = innerCol;
-            ctx.globalAlpha = fillAlpha;
-            ctx.beginPath();
-            ctx.arc(px, py, Math.max(1, petalRadius * (0.3 + (bands.high + laserMod) * 0.5)), 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-
-            // Direct laser ray from center to petal
-            if (laserMod > 0.12 && p % 2 === 0) {
-              ctx.strokeStyle = innerCol;
-              ctx.lineWidth = 1 + laserMod * 2;
-              ctx.beginPath();
-              ctx.moveTo(0, 0);
-              ctx.lineTo(px, py);
-              ctx.stroke();
-            }
-          }
-        }
-      }
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-
-    // --- ENGINE 2: 3D HYPERSPACE WARP TUNNEL (MULTI-BAND REACTIVE) ---
-    else if (st.activeEngine === 'tunnel') {
-      ctx.save();
-      const bassShakeX = (Math.random() - 0.5) * ((bands.sub + shockMod) * 20);
-      const bassShakeY = (Math.random() - 0.5) * ((bands.sub + shockMod) * 20);
-      ctx.translate(cx + bassShakeX, cy + bassShakeY);
-      ctx.rotate(st.rot * 0.5 + (bands.mid * 0.2));
-
-      const tunnelRings = st.params.tunnelRings || 28;
-      const sides = Math.max(3, Math.round((st.params.tunnelSides || 6) + kaleidoMod * 8));
-
-      // LAYER 1: HIGHS & LASER BEAMS
-      if (bands.high > 0.08 || laserMod > 0.1) {
-        const starCount = Math.floor(20 + (bands.high + laserMod) * 60);
-        ctx.save();
-        for (let s = 0; s < starCount; s++) {
-          const angle = (s / starCount) * Math.PI * 2 + (st.time * (2 + spinDelta * 10));
-          const rInner = (Math.min(W, H) * 0.05) + Math.random() * 20;
-          const rOuter = (Math.min(W, H) * 0.6) * (1 + (bands.high + laserMod) * 0.6);
-          const x1 = Math.cos(angle) * rInner;
-          const y1 = Math.sin(angle) * rInner;
-          const x2 = Math.cos(angle) * rOuter;
-          const y2 = Math.sin(angle) * rOuter;
-          const laserCol = palColors[(s + colorOffset) % palColors.length];
-
-          ctx.strokeStyle = laserCol;
-          ctx.lineWidth = 1 + (bands.high + laserMod) * 2.5;
-          ctx.shadowBlur = 10 * bloomMod;
-          ctx.shadowColor = laserCol;
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      // LAYER 2: LOW & SUB PORTAL RINGS
-      for (let i = tunnelRings; i >= 1; i--) {
-        const depth = ((i * 35 + st.tunnelZ * 120) % 1000) / 1000;
-        const bassExpansion = (1 + bands.sub * 0.8 + bands.low * 0.4 + shockMod * 0.7);
-        const scale = Math.pow(depth, 3.2) * (Math.min(W, H) * 0.9) * bassExpansion;
-        const alpha = Math.sin(depth * Math.PI) * (0.4 + bloomMod * 0.5);
-        const col = palColors[(i + colorOffset) % palColors.length];
-
-        ctx.strokeStyle = col;
-        const mainLineW = (1 - depth) * (3 + bands.low * 4 + massMod * 3) + bloomMod * 2;
-        ctx.lineWidth = mainLineW;
-        ctx.shadowBlur = 14 * Math.min(bloomMod, 2) * (1 - depth);
-        ctx.shadowColor = col;
-
-        applySegments(ctx, outSegs, scale);
-
-        // Layer 1: Contrast Outline Stroke
-        if (outWidth > 0) {
-          ctx.save();
-          ctx.strokeStyle = outColor;
-          ctx.lineWidth = mainLineW + outWidth * 2;
-          ctx.shadowBlur = 0;
-          ctx.beginPath();
-          for (let s = 0; s <= sides; s++) {
-            const midRipple = Math.sin(s * 2 + st.time * 6) * ((bands.mid + waveMod) * 35 * depth);
-            const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2 + bands.mid * 1.5);
-            const x = Math.cos(a) * (scale + midRipple);
-            const y = Math.sin(a) * (scale + midRipple);
-            s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // Layer 2: Main Paletted Stroke
-        ctx.beginPath();
-        for (let s = 0; s <= sides; s++) {
-          const midRipple = Math.sin(s * 2 + st.time * 6) * ((bands.mid + waveMod) * 35 * depth);
-          const a = (s / sides) * Math.PI * 2 + depth * (st.rot * 2 + bands.mid * 1.5);
-          const x = Math.cos(a) * (scale + midRipple);
-          const y = Math.sin(a) * (scale + midRipple);
-          s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        if (fillAlpha > 0.05 && fillAlpha < 0.95 && i % 2 === 0) {
-          ctx.save();
-          ctx.fillStyle = col;
-          ctx.globalAlpha = 0.04 * fillAlpha;
-          ctx.fill();
-          ctx.restore();
-        }
-        ctx.stroke();
-
-        // Inner Resonator Rings
-        if (i % 3 === 0 && (bands.mid > 0.12 || waveMod > 0.1)) {
-          const midCol = palColors[(i + 1 + colorOffset) % palColors.length];
-          const innerScale = scale * 0.55 * (1 + Math.sin(st.time * 8 + depth * 5) * (bands.mid + waveMod) * 0.3);
-          ctx.strokeStyle = midCol;
-          ctx.lineWidth = 1.5 + (bands.mid + waveMod) * 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, Math.max(1, innerScale), 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
-      ctx.setLineDash([]);
-
-      // Center Singularity with Transparency
-      const baseCore = st.params.tunnelCoreSize || 20;
-      const coreSize = (baseCore + (bands.sub + shockMod) * 40 + bands.low * 15) * (1 + bloomMod * 0.5);
-      const coreCol = palColors[colorOffset % palColors.length];
-      ctx.save();
-      ctx.fillStyle = coreCol;
-      ctx.globalAlpha = fillAlpha;
-      ctx.shadowBlur = 25 * Math.min(bloomMod, 2);
-      ctx.shadowColor = coreCol;
-      ctx.beginPath();
-      ctx.arc(0, 0, coreSize, 0, Math.PI * 2);
-      ctx.fill();
-      if (outWidth > 0) {
-        ctx.strokeStyle = outColor;
-        ctx.lineWidth = outWidth;
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      ctx.restore();
-    }
-
-    // --- ENGINE 3: PARTICLE SWARM & FLUID VORTEX (MULTI-BAND DISPERSION) ---
-    else if (st.activeEngine === 'particles') {
-      ctx.save();
-      const pts = particlesRef.current;
-
-      // Dynamic Forward Warp & Shockwave
-      const forwardBoost = (1 + bands.sub * 4.5 + warpMod * 4.0) * st.params.speed;
-      const subShockwave = bands.sub > 0.4 || shockMod > 0.25;
-
-      // Particle Mass & Scaling
-      const lowPulse = 1 + bands.low * 2.2 + massMod * 2.0;
-
-      // Vortex angular speed with DIRECTIONAL REVERSE / FORWARD control!
-      const swirlFactor = st.params.particleSwirl || 1.0;
-      const vortexSpeed = (0.015 + spinDelta * 1.5 + bands.mid * 0.08) * swirlFactor;
-      const waveFreq = st.time * 4 + (bands.mid + waveMod) * 8;
-
-      // Highs & Laser filaments
-      const highActive = bands.high > 0.15 || laserMod > 0.15;
-      const activeCount = Math.min(pts.length, Math.round((st.params.particleCount || 800) + massMod * 600 + (bands.high + laserMod) * 500));
-
-      // 1. RADIAL SHOCKWAVE EXPLOSION
-      if (subShockwave) {
-        ctx.save();
-        const shockRadius = ((st.time * 800) % Math.max(W, H)) * ((bands.sub + shockMod) * 0.95);
-        ctx.strokeStyle = palColors[colorOffset % palColors.length];
-        ctx.lineWidth = 2 + (bands.sub + shockMod) * 7;
-        ctx.shadowBlur = 20 * bloomMod;
-        ctx.shadowColor = palColors[colorOffset % palColors.length];
-        ctx.beginPath();
-        ctx.arc(cx, cy, shockRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // 2. CONCENTRIC ACOUSTIC PULSE RINGS
-      if (bands.low > 0.25 || shockMod > 0.1) {
-        ctx.save();
-        const numRings = 3;
-        for (let r = 1; r <= numRings; r++) {
-          const rRadius = (Math.min(W, H) * 0.18 * r) * lowPulse;
-          const rCol = palColors[(r + colorOffset) % palColors.length];
-          ctx.strokeStyle = rCol;
-          ctx.lineWidth = 1 + (bands.low + shockMod) * 2.5;
-          ctx.globalAlpha = Math.min(0.6, (bands.low + shockMod) * 0.5);
-          ctx.beginPath();
-          ctx.arc(cx, cy, rRadius, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      // 3. PARTICLE SIMULATION LOOP
-      const basePSize = st.params.particleSize || 3;
-      const maxFilamentDist = (st.params.filamentDistance || 140) + (bands.high + laserMod) * 120;
-
-      for (let i = 0; i < activeCount; i++) {
-        const p = pts[i];
-
-        p.z -= forwardBoost * p.vz;
-        if (p.z <= 0) {
-          p.z = 2000;
-          p.x = (Math.random() - 0.5) * 2000;
-          p.y = (Math.random() - 0.5) * 2000;
-        }
-
-        const k = 400 / p.z;
-
-        // VORTEX SWIRL: Uses signed vortexSpeed (Negative for Counter-Clockwise!)
-        const distCenter = Math.hypot(p.x, p.y);
-        const swirlAngle = vortexSpeed * (1200 / (distCenter + 60));
-        const cosS = Math.cos(swirlAngle);
-        const sinS = Math.sin(swirlAngle);
-        const nx = p.x * cosS - p.y * sinS;
-        const ny = p.x * sinS + p.y * cosS;
-        p.x = nx;
-        p.y = ny;
-
-        // Radial push outward on Kick / Shockwave
-        if (bands.low > 0.3 || shockMod > 0.2) {
-          const push = 1 + (bands.low + shockMod) * 0.05;
-          p.x *= push;
-          p.y *= push;
-          if (distCenter > 1600) {
-            p.x *= 0.55;
-            p.y *= 0.55;
-          }
-        }
-
-        // Sinusoidal Wave Undulation
-        const waveOffset = Math.sin(p.x * 0.01 + waveFreq) * ((bands.mid + waveMod) * 45);
-        const screenX = cx + p.x * k;
-        const screenY = cy + (p.y + waveOffset) * k;
-
-        if (screenX >= 0 && screenX < W && screenY >= 0 && screenY < H) {
-          const sparkle = highActive ? (1 + Math.sin(i + st.time * 20) * (bands.high + laserMod) * 2.0) : 1;
-          const pSize = Math.max(1, p.size * (basePSize / 3) * k * (3.5 * lowPulse) * sparkle);
-
-          const colIndex = (i + colorOffset) % palColors.length;
-          const col = palColors[colIndex];
-          const alpha = Math.min(1, (1 - p.z / 2000) * (0.6 + bloomMod * 0.4 + (bands.high + laserMod) * 0.4));
-
-          ctx.fillStyle = col;
-          ctx.shadowBlur = (8 + (bands.high + laserMod) * 20) * Math.min(bloomMod, 2);
-          ctx.shadowColor = col;
-
-          ctx.beginPath();
-          ctx.arc(screenX, screenY, pSize, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Kaleidoscope Facet Reflections (when kaleido_facets is modulated)
-          if (kaleidoMod > 0.05 && i % 2 === 0) {
-            const mirX = cx - (p.x * k);
-            const mirY = cy - ((p.y + waveOffset) * k);
-            ctx.beginPath();
-            ctx.arc(mirX, mirY, pSize * 0.9, 0, Math.PI * 2);
-            ctx.fill();
-          }
-
-          // Lightning Constellation Filaments
-          if (highActive && i % 4 === 0 && i < activeCount - 1) {
-            const nextP = pts[i + 1];
-            const nextK = 400 / nextP.z;
-            const nextScreenX = cx + nextP.x * nextK;
-            const nextScreenY = cy + (nextP.y + waveOffset) * nextK;
-            const filamentDist = Math.hypot(screenX - nextScreenX, screenY - nextScreenY);
-
-            if (filamentDist < maxFilamentDist) {
-              ctx.strokeStyle = col;
-              ctx.lineWidth = 1 + (bands.high + laserMod) * 2;
-              ctx.globalAlpha = Math.min(0.85, (1 - filamentDist / (maxFilamentDist * 1.8)) * (bands.high + laserMod));
-              ctx.beginPath();
-              ctx.moveTo(screenX, screenY);
-              ctx.lineTo(nextScreenX, nextScreenY);
-              ctx.stroke();
-              ctx.globalAlpha = 1.0;
-            }
-          }
-        }
-      }
-
-      ctx.restore();
-    }
-
-    // --- ENGINE 4: NEON CYBER TOPOGRAPHY WIREFRAME ---
-    else if (st.activeEngine === 'wireframe') {
-      ctx.save();
-      ctx.translate(cx, cy * 1.15);
-      const rows = st.params.wireframeRows || 18;
-      const cols = Math.max(16, Math.round((st.params.wireframeCols || 32) + kaleidoMod * 16));
-      const gridW = W * (1.2 + shockMod * 0.4);
-      const gridH = H * (0.8 + warpMod * 0.5);
-      const tiltDeg = st.params.wireframeTilt !== undefined ? st.params.wireframeTilt : 15;
-      const tiltRad = (tiltDeg * Math.PI) / 180;
-      const baseHeight = st.params.wireframeHeight || 180;
-
-      ctx.rotate(tiltRad + (spinDelta * 3)); // Isometric camera angle + spin
-
-      for (let r = 0; r < rows; r++) {
-        const zRatio = (r / rows);
-        const rowY = (r / rows) * gridH - gridH * 0.5;
-        const col = palColors[(r + colorOffset) % palColors.length];
-
-        ctx.strokeStyle = col;
-        ctx.lineWidth = (1.5 + bloomMod + massMod * 1.5);
-        ctx.shadowBlur = (8 + laserMod * 12) * Math.min(bloomMod, 2);
-        ctx.shadowColor = col;
-
-        ctx.beginPath();
-        for (let c = 0; c <= cols; c++) {
-          const colX = (c / cols) * gridW - gridW * 0.5;
-          const freqIndex = Math.floor((c / cols) * freqData.length * 0.4);
-          const waveElev = Math.sin(c * 0.4 + st.time * 6) * (waveMod * 60);
-          const shockElev = Math.cos(r * 0.5 - st.time * 4) * (shockMod * 50);
-          const elev = ((freqData[freqIndex] || 0) / 255) * (baseHeight * bands.master * (1 + bands.low * 1.5)) * Math.sin(c * 0.2 + st.time * 3) + waveElev + shockElev;
-          const py = rowY - elev;
-
-          c === 0 ? ctx.moveTo(colX, py) : ctx.lineTo(colX, py);
-        }
-        ctx.stroke();
-
-        // Cross-wire laser beams
-        if (laserMod > 0.15 && r % 3 === 0) {
-          ctx.strokeStyle = palColors[(r + 2 + colorOffset) % palColors.length];
-          ctx.lineWidth = 1 + laserMod * 2;
-          ctx.beginPath();
-          ctx.moveTo(-gridW * 0.5, rowY);
-          ctx.lineTo(gridW * 0.5, rowY);
-          ctx.stroke();
-        }
-      }
-      ctx.restore();
-    }
-
-    // --- ENGINE 5: GLITCH MATRIX & DATA SORTING ---
-    else if (st.activeEngine === 'cyber') {
-      ctx.save();
-      const baseBands = st.params.matrixBands || 48;
-      const bandsCount = Math.max(16, Math.round(baseBands + kaleidoMod * 24));
-      const cellW = W / bandsCount;
-      const sliceScale = st.params.matrixSliceScale || 1.0;
-      const glitchChance = ((st.params.glitchIntensity ?? 30) / 100) * (0.15 + (bands.sub + shockMod) * 0.4);
-      const scanSpeed = st.params.scanlineSpeed || 1.0;
-
-      for (let i = 0; i < bandsCount; i++) {
-        const binVal = ((freqData[Math.floor(i * (freqData.length / bandsCount))] || 0) / 255);
-        const waveH = Math.sin(i * 0.3 + st.time * 5) * (waveMod * 80);
-        const sliceH = Math.max(4, (binVal * H * sliceScale * (1 + bands.mid * 1.5) + waveH) * (1 + massMod * 0.8));
-        const isGlitch = Math.random() < glitchChance;
-
-        const xShift = spinDelta * 300;
-        const x = (i * cellW + xShift + W) % W;
-        const y = isGlitch ? Math.random() * (H - sliceH) : (H - sliceH) / 2;
-        const col = palColors[(i + colorOffset) % palColors.length];
-
-        ctx.fillStyle = col;
-        ctx.shadowBlur = (laserMod > 0.1 ? 12 : 0) * bloomMod;
-        ctx.shadowColor = col;
-        ctx.fillRect(x, y, Math.max(1, cellW - 2), sliceH);
-
-        // Cyber scanlines & Laser Streaks
-        if (i % 2 === 0 || laserMod > 0.2) {
-          ctx.fillStyle = palColors[(i + 1 + colorOffset) % palColors.length];
-          const scanY = (y + st.time * (100 + warpMod * 200) * scanSpeed) % H;
-          ctx.fillRect(x, scanY, Math.max(1, cellW - 2), (2 + laserMod * 4));
-        }
-      }
-      ctx.restore();
-    }
-
-    // --- ENGINE 6: VECTOR OSCILLOSCOPE & HARMONIC SPECTRUM ---
-    else if (st.activeEngine === 'bars') {
-      ctx.save();
-      const numPoints = waveData.length;
-      const spread = st.params.oscilloSpread || 1.0;
-      const step = (W / numPoints) * spread;
-      const traceWidth = st.params.oscilloWidth || 3;
-      const ampHeight = st.params.oscilloHeight || 1.0;
-
-      ctx.strokeStyle = c0;
-      ctx.lineWidth = (traceWidth + bloomMod * 2 + massMod * 3);
-      ctx.shadowBlur = (15 + laserMod * 15) * Math.min(bloomMod, 2);
-      ctx.shadowColor = c0;
-
-      ctx.beginPath();
-      for (let i = 0; i < numPoints; i++) {
-        const v = ((waveData[i] || 128) / 128.0) - 1.0;
-        const waveDisplace = Math.sin(i * 0.05 + st.time * 8) * (waveMod * 50);
-        const shockDisplace = (Math.random() - 0.5) * (shockMod * 40);
-        const y = cy + (v * (H * 0.4 * ampHeight) * (1 + bands.low + bands.sub * 1.5 + warpMod) + waveDisplace + shockDisplace);
-        const x = (i * step + (spinDelta * 200) + W) % W;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      // Mirrored Harmonic reflection & Kaleidoscope Multiplier
-      const baseMirrors = st.params.oscilloMirrors || 3;
-      const mirCount = Math.max(1, Math.round(baseMirrors + kaleidoMod * 3));
-      for (let m = 1; m <= mirCount; m++) {
-        ctx.strokeStyle = palColors[(m + colorOffset) % palColors.length];
-        ctx.lineWidth = Math.max(1, (traceWidth * 0.5) + laserMod * 1.5);
-        ctx.beginPath();
-        for (let i = 0; i < numPoints; i += (m > 1 ? 2 : 1)) {
-          const v = ((waveData[i] || 128) / 128.0) - 1.0;
-          const y = cy - (v * (H * (0.3 / m) * ampHeight) * (1 + bands.high * 1.5));
-          const x = (i * step) % W;
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    }
-
-    // --- SPECTERR WAVEFORM EMBLEM & SEGMENTED OUTLINE RING (app.specterr.com) ---
-    if (st.params.showSpecterrRing) {
-      ctx.save();
-      ctx.translate(cx, cy);
-      const ringRadius = Math.min(W, H) * 0.22 * (1 + bands.sub * 0.35 + shockMod * 0.25);
-      const waveSamples = 96;
-      const stepAngle = (Math.PI * 2) / waveSamples;
-
-      // 1. Center Backdrop: semi-transparent or fully transparent
-      if (fillAlpha > 0.01) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(0, 0, ringRadius * 0.88, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(10, 10, 16, ${0.75 * fillAlpha})`;
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // Generate waveform path points
-      const wavePoints = [];
-      for (let s = 0; s < waveSamples; s++) {
-        const angle = s * stepAngle + st.rot * 0.5;
-        const waveIdx = Math.floor((s / waveSamples) * (waveData.length || 512));
-        const freqIdx = Math.floor((s / waveSamples) * (freqData.length || 512) * 0.35);
-        const waveSample = ((waveData[waveIdx] || 128) - 128) / 128;
-        const freqSample = (freqData[freqIdx] || 0) / 255;
-        
-        const displacement = (waveSample * 25 * (1 + bands.mid)) + (freqSample * 45 * (1 + bands.low));
-        const r = Math.max(10, ringRadius + displacement);
-        wavePoints.push({
-          x: Math.cos(angle) * r,
-          y: Math.sin(angle) * r
-        });
-      }
-
-      // Apply Specterr outline segments dash pattern
-      if (outSegs > 0) {
-        const segDash = Math.max(4, (ringRadius * Math.PI * 2) / (outSegs * 2.5));
-        const segGap = Math.max(3, 5 + bands.high * 8);
-        ctx.setLineDash([segDash, segGap]);
-      } else {
-        ctx.setLineDash([]);
-      }
-
-      // Layer 1: Contrast Outline Stroke (Specterr Wave Layer 1 Outline)
-      if (outWidth > 0) {
-        ctx.save();
-        ctx.beginPath();
-        for (let i = 0; i <= wavePoints.length; i++) {
-          const pt = wavePoints[i % wavePoints.length];
-          i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
-        }
-        ctx.closePath();
-        ctx.strokeStyle = outColor;
-        ctx.lineWidth = 3 + outWidth * 2;
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // Layer 2: Primary Waveform Color Stroke (Layer Color)
-      ctx.save();
-      ctx.beginPath();
-      for (let i = 0; i <= wavePoints.length; i++) {
-        const pt = wavePoints[i % wavePoints.length];
-        i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
-      }
-      ctx.closePath();
-
-      // Transparent fill
-      if (fillAlpha > 0.05) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.08 * fillAlpha})`;
-        ctx.fill();
-      }
-
-      ctx.strokeStyle = c0;
-      ctx.lineWidth = 3 + bloomMod * 2;
-      ctx.shadowBlur = 12 * Math.min(bloomMod, 2);
-      ctx.shadowColor = c0;
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-      ctx.restore();
-
-      // Layer 3: Inner Secondary Echo Ring (Wave Layer 2 in Specterr screenshot)
-      if (outWidth > 2) {
-        ctx.save();
-        ctx.beginPath();
-        for (let i = 0; i <= wavePoints.length; i++) {
-          const pt = wavePoints[i % wavePoints.length];
-          const innerR = 0.82;
-          i === 0 ? ctx.moveTo(pt.x * innerR, pt.y * innerR) : ctx.lineTo(pt.x * innerR, pt.y * innerR);
-        }
-        ctx.closePath();
-        ctx.strokeStyle = c1;
-        ctx.lineWidth = Math.max(1, outWidth * 0.7);
-        ctx.globalAlpha = 0.8;
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-
-    // --- END GLOBAL LAYOUT TRANSFORM ---
-    ctx.restore();
-
-    // --- POST-PROCESSING: CHROMATIC GLITCH & GRAIN (Safe Overlays) ---
-    if (chromaMod > 0.1 && bands.low > 0.35) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(255, 0, 128, 0.04)';
-      ctx.fillRect(Math.sin(st.time * 10) * 8, 0, W, H);
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.04)';
-      ctx.fillRect(-Math.sin(st.time * 10) * 8, 0, W, H);
-      ctx.restore();
-    }
-
-    // Dynamic Film Grain Overlay
-    if (grainMod > 0.05) {
-      ctx.save();
-      const grainCount = Math.floor(Math.min(W * H * 0.00015 * grainMod, 400));
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      for (let g = 0; g < grainCount; g++) {
-        ctx.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5);
-      }
-      ctx.restore();
-    }
-    } catch (drawErr) {
-      console.error('Frame render engine caught error (recovered):', drawErr);
-      try {
-        ctx.restore();
-      } catch (_) {}
+    return result;
+  };
+
+  // Single Frame Render Engine
+  const renderFrame = () => {
+    // OLD 2D CANVAS RENDERER DISABLED - Now using React Three Fiber via VisualizerCanvas
+    if (!dataArrayRef.current || !waveDataArrayRef.current) return;
+    lastRenderTimestampRef.current = performance.now();
+    
+    if (analyserRef.current) {
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+      analyserRef.current.getByteTimeDomainData(waveDataArrayRef.current);
     }
   };
 
@@ -1441,8 +767,8 @@ export default function App() {
             <Icons.Monitor /> {isTauriEnv ? 'Start Native Engine' : 'Connect Native Audio'}
           </button>
           {isTauriEnv && nativeDevices.length > 0 && (
-            <select 
-              value={selectedNativeDevice} 
+            <select
+              value={selectedNativeDevice}
               onChange={handleDeviceChange}
               className="transport-btn"
               style={{ padding: '0 8px', maxWidth: '200px', textOverflow: 'ellipsis', background: 'rgba(255,255,255,0.1)' }}
@@ -1514,7 +840,15 @@ export default function App() {
 
       {/* --- MAIN VISUALIZER WORKSPACE --- */}
       <main className="daw-main">
-        <canvas ref={canvasRef} className="viz-canvas" />
+        <div className="viz-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+          {isRunning && (
+            <VisualizerCanvas 
+              layers={[{ id: 1, engine: activeEngine, modMatrix, params }]} 
+              masterParams={params} 
+            />
+          )}
+        </div>
+        <canvas ref={canvasRef} className="viz-canvas" style={{ pointerEvents: 'none', display: 'none' }} />
 
         {/* STANDBY / IDLE ONBOARDING SCREEN */}
         {!isRunning && (
@@ -1539,8 +873,8 @@ export default function App() {
                 {isTauriEnv && nativeDevices.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
                     <span style={{ fontSize: '12px', color: '#888' }}>SELECT AUDIO DEVICE</span>
-                    <select 
-                      value={selectedNativeDevice} 
+                    <select
+                      value={selectedNativeDevice}
                       onChange={handleDeviceChange}
                       style={{ padding: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid #333', maxWidth: '300px' }}
                     >
@@ -1548,17 +882,17 @@ export default function App() {
                     </select>
                   </div>
                 )}
-                
+
                 <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', width: '100%' }}>
                   <button className="idle-action-btn primary" onClick={captureTabAudio}>
                     <Icons.Monitor /> {isTauriEnv ? 'Start Visualizer' : 'Connect Native Audio'}
                     <span className="idle-action-sub">{isTauriEnv ? 'Listen to selected device' : 'Tauri Desktop & Zero-Latency WASAPI'}</span>
                   </button>
                   {!isTauriEnv && (
-                    <a 
-                      href="/Cables_2.0_Setup.zip" 
-                      download 
-                      className="idle-action-btn" 
+                    <a
+                      href="/Cables_2.0_Setup.zip"
+                      download
+                      className="idle-action-btn"
                       style={{ textDecoration: 'none', background: '#7928ca' }}
                     >
                       <Icons.Play /> Download Pro Desktop
@@ -1572,7 +906,7 @@ export default function App() {
           </div>
         )}
 
-                {/* Live Audio Reactive HUD */}
+        {/* Live Audio Reactive HUD */}
         {isRunning && (
           <div className="live-hud-strip">
             <div className="hud-pill">
@@ -1597,7 +931,9 @@ export default function App() {
               title="Click to force-refresh render loop"
             >
               <span className="hud-label">SYNC</span>
-              <span className="hud-val" style={{ color: '#00ffcc' }}>REALTIME ⚡</span>
+              <span className="hud-val" style={{ color: levels.peak >= 0.015 ? '#00ffcc' : '#888888' }}>
+                {levels.peak >= 0.015 ? 'REALTIME ⚡' : 'DORMANT (SILENT)'}
+              </span>
             </div>
           </div>
         )}
@@ -1638,6 +974,18 @@ export default function App() {
               onClick={() => setActiveTab('layout')}
             >
               <Icons.Expand /> Layout & Workspace
+            </button>
+            <button
+              className={`rack-tab ${activeTab === 'layers' ? 'active' : ''}`}
+              onClick={() => setActiveTab('layers')}
+            >
+              <Icons.Wireframe /> Multi-Layer Edge Compositor
+            </button>
+            <button
+              className={`rack-tab ${activeTab === 'presets' ? 'active' : ''}`}
+              onClick={() => setActiveTab('presets')}
+            >
+              <Icons.Sparkles /> User Presets ({userPresets.length})
             </button>
           </div>
           <span className="rack-info">Ableton Live FX Rack v2.0 · Background Audio Lock</span>
@@ -1938,7 +1286,7 @@ export default function App() {
                   </div>
                   <div className="dsp-controls-box">
                     <div className="dsp-header">Analysis DSP</div>
-                    
+
                     {/* SENSITIVITY SLIDER */}
                     <div className="dsp-slider-row">
                       <div className="dsp-label-row">
@@ -2099,11 +1447,11 @@ export default function App() {
                       />
                       <span>{params.tunnelSides ?? 6} sides ({
                         params.tunnelSides === 3 ? 'Tri' :
-                        params.tunnelSides === 4 ? 'Square' :
-                        params.tunnelSides === 5 ? 'Penta' :
-                        params.tunnelSides === 6 ? 'Hex' :
-                        params.tunnelSides === 8 ? 'Octa' :
-                        (params.tunnelSides ?? 6) >= 12 ? 'Cylinder' : 'Poly'
+                          params.tunnelSides === 4 ? 'Square' :
+                            params.tunnelSides === 5 ? 'Penta' :
+                              params.tunnelSides === 6 ? 'Hex' :
+                                params.tunnelSides === 8 ? 'Octa' :
+                                  (params.tunnelSides ?? 6) >= 12 ? 'Cylinder' : 'Poly'
                       })</span>
                     </div>
                   </div>
@@ -2378,10 +1726,10 @@ export default function App() {
                   </div>
                   <span className="outline-color-name">
                     {params.outlineColor === '#000000' ? 'Dark' :
-                     params.outlineColor === '#ffffff' ? 'White' :
-                     params.outlineColor === '#00f0ff' ? 'Cyan' :
-                     params.outlineColor === '#ff007f' ? 'Pink' :
-                     params.outlineColor === '#39ff14' ? 'Lime' : 'Palette'}
+                      params.outlineColor === '#ffffff' ? 'White' :
+                        params.outlineColor === '#00f0ff' ? 'Cyan' :
+                          params.outlineColor === '#ff007f' ? 'Pink' :
+                            params.outlineColor === '#39ff14' ? 'Lime' : 'Palette'}
                   </span>
                 </div>
               </div>
@@ -2507,6 +1855,207 @@ export default function App() {
                   <span>{(params.zoom ?? 1.0).toFixed(1)}x</span>
                   <button style={{ marginLeft: '10px', fontSize: '10px', padding: '2px 6px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setParams({ ...params, zoom: 1.0 })}>Reset</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: MULTI-LAYER EDGE COMPOSITOR */}
+          {activeTab === 'layers' && (
+            <div className="rack-params-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+              <div className="param-device-box">
+                <div className="specterr-box-header">
+                  <h4>Edge Layer Compositor Status</h4>
+                  <span className="specterr-tag" style={{ background: '#a855f7', color: '#fff' }}>MULTI-LAYER</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Enable Secondary Edge Layer:</label>
+                  <input
+                    type="checkbox"
+                    checked={edgeLayerConfig.enabled}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, enabled: e.target.checked })}
+                    style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                  />
+                  <span style={{ color: edgeLayerConfig.enabled ? '#00ffcc' : '#888' }}>
+                    {edgeLayerConfig.enabled ? 'ACTIVE ⚡' : 'MUTED'}
+                  </span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Rendering Style:</label>
+                  <select
+                    value={edgeLayerConfig.style}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, style: e.target.value })}
+                    className="matrix-select"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px' }}
+                  >
+                    <option value="bars" style={{ color: '#000' }}>Linear Spectrum Bars (High-Precision Peak Caps)</option>
+                    <option value="oscillo" style={{ color: '#000' }}>Oscilloscope Wave Traces (Border Wave Ribbon)</option>
+                    <option value="laser" style={{ color: '#000' }}>Glowing Laser Streaks (Starburst Filaments)</option>
+                    <option value="sparks" style={{ color: '#000' }}>Granular Spark Emitters (Hi-Hat / Snare Spikes)</option>
+                  </select>
+                </div>
+                <div className="param-slider-row">
+                  <label>Screen Edge Placement:</label>
+                  <select
+                    value={edgeLayerConfig.placement}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, placement: e.target.value })}
+                    className="matrix-select"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px' }}
+                  >
+                    <option value="top_bottom" style={{ color: '#000' }}>Top &amp; Bottom Mirrored</option>
+                    <option value="top" style={{ color: '#000' }}>Top Border Only</option>
+                    <option value="bottom" style={{ color: '#000' }}>Bottom Border Only</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="param-device-box">
+                <h4>Frequency Slice &amp; Geometry Controls</h4>
+                <div className="param-slider-row">
+                  <label>Min Freq Cutoff (Hz):</label>
+                  <input
+                    type="range" min="20" max="10000" step="50"
+                    value={edgeLayerConfig.minFreqHz}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, minFreqHz: Number(e.target.value) })}
+                  />
+                  <span>{edgeLayerConfig.minFreqHz} Hz</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Max Freq Cutoff (Hz):</label>
+                  <input
+                    type="range" min="1000" max="20000" step="100"
+                    value={edgeLayerConfig.maxFreqHz}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, maxFreqHz: Number(e.target.value) })}
+                  />
+                  <span>{edgeLayerConfig.maxFreqHz} Hz</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Bar Resolution:</label>
+                  <input
+                    type="range" min="4" max="64" step="2"
+                    value={edgeLayerConfig.barCount}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, barCount: Number(e.target.value) })}
+                  />
+                  <span>{edgeLayerConfig.barCount} bars</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Max Bar Height:</label>
+                  <input
+                    type="range" min="20" max="300" step="5"
+                    value={edgeLayerConfig.barHeight}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, barHeight: Number(e.target.value) })}
+                  />
+                  <span>{edgeLayerConfig.barHeight}px</span>
+                </div>
+                <div className="param-slider-row">
+                  <label>Gain Sensitivity:</label>
+                  <input
+                    type="range" min="50" max="300" step="5"
+                    value={edgeLayerConfig.gain}
+                    onChange={e => setEdgeLayerConfig({ ...edgeLayerConfig, gain: Number(e.target.value) })}
+                  />
+                  <span>{edgeLayerConfig.gain}%</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: USER PRESETS MANAGER */}
+          {activeTab === 'presets' && (
+            <div className="rack-params-grid" style={{ gridTemplateColumns: '1fr 2fr' }}>
+              <div className="param-device-box">
+                <div className="specterr-box-header">
+                  <h4>Save Live Preset</h4>
+                  <span className="specterr-tag" style={{ background: '#ec4899', color: '#fff' }}>USER PRESET</span>
+                </div>
+                <p style={{ fontSize: '11px', color: '#aaa', margin: '0 0 10px 0' }}>
+                  Capture all live matrix mappings, gains, engine tweaks, colors &amp; edge compositor settings into a reusable preset slot.
+                </p>
+                <div className="dsp-slider-row" style={{ flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
+                  <input
+                    type="text"
+                    placeholder="Preset Title (e.g. Neon Stardust)"
+                    value={newPresetName}
+                    onChange={e => setNewPresetName(e.target.value)}
+                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '8px 12px', borderRadius: '4px', fontSize: '12px' }}
+                  />
+                  <button
+                    className="idle-action-btn primary"
+                    style={{ width: '100%', justifyContent: 'center', padding: '10px', fontSize: '12px' }}
+                    onClick={() => saveUserPreset(newPresetName)}
+                  >
+                    <Icons.Sparkles /> Save Current Preset
+                  </button>
+                </div>
+
+                <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  <h4>Import Preset File</h4>
+                  <input
+                    type="file"
+                    accept=".json,.cables"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={importPresetJSON}
+                  />
+                  <button
+                    className="idle-action-btn"
+                    style={{ width: '100%', justifyContent: 'center', background: '#3b82f6', color: '#fff', marginTop: '6px', fontSize: '12px' }}
+                    onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                  >
+                    <Icons.Expand /> Import .cables JSON File
+                  </button>
+                </div>
+              </div>
+
+              <div className="param-device-box">
+                <div className="specterr-box-header">
+                  <h4>User Preset Library ({userPresets.length})</h4>
+                  <span className="specterr-tag" style={{ background: '#7928ca', color: '#fff' }}>SLOTS</span>
+                </div>
+                {userPresets.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#888', fontSize: '12px' }}>
+                    No custom presets saved yet. Adjust your visualizer and click "Save Current Preset" above!
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {userPresets.map(preset => (
+                      <div
+                        key={preset.id}
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '6px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong style={{ color: '#00ffcc', fontSize: '13px' }}>{preset.name}</strong>
+                          <span style={{ fontSize: '9px', color: '#777' }}>{preset.createdAt}</span>
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#aaa', display: 'flex', gap: '8px' }}>
+                          <span>Engine: <b style={{ color: '#fff' }}>{preset.activeEngine}</b></span>
+                          <span>Palette: <b style={{ color: '#fff' }}>{preset.activePalette}</b></span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                          <button
+                            style={{ flex: 1, padding: '4px 8px', fontSize: '11px', background: '#39ff14', color: '#000', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            onClick={() => loadUserPreset(preset)}
+                          >
+                            Load
+                          </button>
+                          <button
+                            style={{ padding: '4px 8px', fontSize: '11px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            onClick={() => exportPresetJSON(preset)}
+                            title="Export to .json"
+                          >
+                            Export
+                          </button>
+                          <button
+                            style={{ padding: '4px 8px', fontSize: '11px', background: '#ff0055', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            onClick={() => deleteUserPreset(preset.id)}
+                            title="Delete Preset"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
