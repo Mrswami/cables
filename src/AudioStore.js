@@ -103,7 +103,10 @@ class AudioStore {
       const end = Math.max(start, Math.min(maxBin, Math.ceil(endHz / binHz)));
       let sum = 0, max = 0;
       for (let i = start; i <= end; i++) {
-        const v = freq[i] || 0;
+        const raw = freq[i] || 0;
+        // Spectral Tilt (Pre-emphasis): Boost high frequencies linearly to compensate for natural roll-off in music
+        const weight = 1.0 + (i / maxBin) * 3.5; 
+        const v = raw * weight;
         sum += v;
         if (v > max) max = v;
       }
@@ -123,10 +126,11 @@ class AudioStore {
     const high = getRangeStats(ranges.high[0], ranges.high[1]);
     
     // Envelope Follower Logic: Track TRUE peak transients
+    // For higher bands, 'sum / count' often provides a cleaner rhythmic profile than raw peak
     const rawSub = Math.min(1.5, (sub.max / 255) * sens);
     const rawLow = Math.min(1.5, (low.max / 255) * sens);
-    const rawMid = Math.min(1.5, (mid.max / 255) * sens);
-    const rawHigh = Math.min(1.5, (high.max / 255) * sens);
+    const rawMid = Math.min(1.5, ((mid.max * 0.7 + (mid.sum / mid.count) * 2.0) / 255) * sens);
+    const rawHigh = Math.min(1.5, ((high.max * 0.5 + (high.sum / high.count) * 4.0) / 255) * sens);
     
     // Rhythmic Onset & Spectral Flux Detection (Kick / Snare / HiHat punch)
     const prevSub = this.prevBands.sub || 0;

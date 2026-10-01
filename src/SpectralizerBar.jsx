@@ -213,8 +213,13 @@ export default function SpectralizerBar({ modMatrix, levels, freqRanges, setFreq
         const v2 = freq && freq[idx + 1] ? freq[idx + 1] : v1;
         const val = v1 * (1 - frac) + v2 * frac;
         
+        // Apply identical spectral tilt to visualizer line
+        const maxBin = freq ? freq.length - 1 : 1023;
+        const weight = 1.0 + (idx / maxBin) * 3.5;
+        const tiltedVal = val * weight;
+        
         const globalSens = audioStore.config.sensitivity || 1.0;
-        const normVal = Math.min(1.0, (val / 255) * 1.25 * globalSens);
+        const normVal = Math.min(1.0, (tiltedVal / 255) * 1.25 * globalSens);
         
         const maxLineHeight = height - (24 * dpr);
         const pointY = height - (Math.pow(normVal, 0.9) * maxLineHeight) - (20 * dpr);
