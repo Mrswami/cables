@@ -110,10 +110,17 @@ class AudioStore {
       return { sum, max, count: Math.max(1, end - start + 1) };
     };
 
-    const sub = getRangeStats(20, 65);
-    const low = getRangeStats(65, 250);
-    const mid = getRangeStats(250, 2500);
-    const high = getRangeStats(2500, 16000);
+    const ranges = this.config.ranges || {
+      sub: [20, 65],
+      low: [65, 250],
+      mid: [250, 2500],
+      high: [2500, 16000]
+    };
+
+    const sub = getRangeStats(ranges.sub[0], ranges.sub[1]);
+    const low = getRangeStats(ranges.low[0], ranges.low[1]);
+    const mid = getRangeStats(ranges.mid[0], ranges.mid[1]);
+    const high = getRangeStats(ranges.high[0], ranges.high[1]);
     
     // Envelope Follower Logic: Track TRUE peak transients
     const rawSub = Math.min(1.5, (sub.max / 255) * sens);

@@ -90,8 +90,8 @@ export default function ParticleSwarm({ layerState }) {
     const b = audioStore.bands;
     const mod = layerState?.modMatrix;
 
-    // Mod Matrix evaluation for particle properties
-    const massMod = audioStore.getModValue(mod, 'particle_mass') + b.kickOnset * 1.2;
+    // Mod Matrix evaluation for particle properties (strictly from routing)
+    const massMod = audioStore.getModValue(mod, 'particle_mass');
     const shockMod = audioStore.getModValue(mod, 'shockwave');
     const shapeMorph = audioStore.getModValue(mod, 'particle_shape_morph');
     const sizeMod = audioStore.getModValue(mod, 'particle_size');
@@ -102,11 +102,12 @@ export default function ParticleSwarm({ layerState }) {
     const baseSize = layerState?.params?.particleSize ?? 2.0;
     const baseTurb = layerState?.params?.particleTurbulence ?? 0.5;
 
-    const swirlSpeed = (baseSwirl * 0.4 + speedMod * 0.5 + b.mid * 0.3);
+    // Gentle base spin, immense acceleration on speedMod
+    const swirlSpeed = (baseSwirl * 0.1) + speedMod * 4.0;
 
     // Galaxy spin
     instancedRef.current.rotation.z += swirlSpeed * delta;
-    instancedRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.6) * 0.25;
+    instancedRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.6) * 0.1;
 
     const time = state.clock.elapsedTime * 2;
     const mesh = instancedRef.current;
@@ -117,28 +118,28 @@ export default function ParticleSwarm({ layerState }) {
       const by = p.basePos.y;
       const bz = p.basePos.z;
 
-      // Audio reactive wave ripples outwards
-      const wave = Math.sin(p.dist * 0.4 - time + p.phase) * (b.sub * 6 + shockMod * 8);
+      // Audio reactive wave ripples outwards only on shock
+      const wave = Math.sin(p.dist * 0.4 - time + p.phase) * (shockMod * 15.0);
 
-      // Noise turbulence jitter
-      const turbX = Math.sin(time * 2 + p.dist) * (baseTurb + turbMod * 2);
-      const turbY = Math.cos(time * 2.2 + p.dist) * (baseTurb + turbMod * 2);
+      // Noise turbulence jitter (only jumps when routed)
+      const turbX = Math.sin(time * 2 + p.dist) * (baseTurb * 0.2 + turbMod * 8.0);
+      const turbY = Math.cos(time * 2.2 + p.dist) * (baseTurb * 0.2 + turbMod * 8.0);
 
-      p.currentPos.x = bx * (1 + b.low * 0.25 + massMod * 0.35) + Math.cos(time + p.dist) * wave * 0.25 + turbX;
-      p.currentPos.y = by * (1 + b.low * 0.25 + massMod * 0.35) + Math.sin(time + p.dist) * wave * 0.25 + turbY;
-      p.currentPos.z = bz + wave * 1.5;
+      p.currentPos.x = bx * (1 + massMod * 1.5) + Math.cos(time + p.dist) * wave * 0.25 + turbX;
+      p.currentPos.y = by * (1 + massMod * 1.5) + Math.sin(time + p.dist) * wave * 0.25 + turbY;
+      p.currentPos.z = bz + wave * 2.0;
 
       // Rotate particle 3D geometry individually
-      p.rot.x += p.rotSpeed.x * delta * (1 + speedMod);
-      p.rot.y += p.rotSpeed.y * delta * (1 + speedMod);
-      p.rot.z += p.rotSpeed.z * delta * (1 + speedMod);
+      p.rot.x += p.rotSpeed.x * delta * (0.5 + speedMod * 2.0);
+      p.rot.y += p.rotSpeed.y * delta * (0.5 + speedMod * 2.0);
+      p.rot.z += p.rotSpeed.z * delta * (0.5 + speedMod * 2.0);
 
       dummy.position.copy(p.currentPos);
       dummy.rotation.copy(p.rot);
 
-      // Scale particle based on shape morphing & kick transients
-      const shapeMorphFactor = 1.0 + Math.sin(time * 4 + shapeMorph * 5) * 0.3 * shapeMorph;
-      const finalScale = p.baseScale * (baseSize / 2.0) * (1 + b.sub * 0.6 + sizeMod * 0.8) * shapeMorphFactor;
+      // Scale particle based on shape morphing & size mod
+      const shapeMorphFactor = 1.0 + Math.sin(time * 4 + shapeMorph * 5) * 0.8 * shapeMorph;
+      const finalScale = p.baseScale * (baseSize / 2.0) * (1 + sizeMod * 4.0) * shapeMorphFactor;
       dummy.scale.set(finalScale, finalScale, finalScale);
 
       dummy.updateMatrix();
@@ -147,10 +148,10 @@ export default function ParticleSwarm({ layerState }) {
 
     mesh.instanceMatrix.needsUpdate = true;
 
-    // Pulsating Gravitational Core
+    // Pulsating Gravitational Core (only jumps on massMod or shockMod)
     if (coreRef.current) {
-      const coreScale = 3.5 + b.sub * 4.0 + massMod * 3.0;
-      coreRef.current.scale.set(coreScale, coreScale, coreScale);
+      const coreScale = 3.5 + massMod * 6.0 + shockMod * 4.0;
+      coreRef.current.scale.lerp(new THREE.Vector3(coreScale, coreScale, coreScale), 0.2);
       coreRef.current.rotation.y += delta * 0.8;
       coreRef.current.rotation.z += delta * 0.5;
     }

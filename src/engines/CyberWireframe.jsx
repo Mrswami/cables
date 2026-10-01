@@ -23,17 +23,17 @@ export default function CyberWireframe({ layerState }) {
   useFrame((state, delta) => {
     if (!meshRef.current) return;
 
-    const b = audioStore.bands;
     const mod = layerState.modMatrix;
     const freq = audioStore.freqData;
 
-    const speed = (layerState.params?.speed || 1.0) * 1.5;
-    const warpMod = audioStore.getModValue(mod, 'warp_tunnel') + b.kickOnset * 1.5;
+    const warpMod = audioStore.getModValue(mod, 'warp_tunnel');
     const shockMod = audioStore.getModValue(mod, 'shockwave');
     const waveMod = audioStore.getModValue(mod, 'wave_current');
+    
+    // Grid only moves forward if warpMod or waveMod is applied (base slow drift)
+    const time = state.clock.elapsedTime * (0.5 + warpMod * 5.0 + waveMod * 2.0);
 
     const pos = meshRef.current.geometry.attributes.position;
-    const time = state.clock.elapsedTime * (1.5 + warpMod);
 
     for (let i = 0; i < pos.count; i++) {
       const colIdx = i % cols;
@@ -48,17 +48,22 @@ export default function CyberWireframe({ layerState }) {
 
       // Mountain elevation on edges, flat runway in center
       const mountainShape = Math.pow(normalizedCol, 1.8) * 18;
-      const wave = Math.sin(rowIdx * 0.4 - time * 3) * (3 + waveMod * 6);
-      const audioPulse = freqVal * (14 + b.sub * 16 + shockMod * 10);
+      
+      // Wave only applies if waveMod > 0
+      const wave = Math.sin(rowIdx * 0.4 - time * 3) * (waveMod * 12.0);
+      
+      // Audio pulse on mountains strictly gated by shockMod
+      const audioPulse = freqVal * (shockMod * 30.0);
 
-      pos.setZ(i, (mountainShape + wave + audioPulse) * (b.isActive ? 1 : 0.2));
+      // Terrain only rises if waveMod or shockMod is active
+      pos.setZ(i, mountainShape + wave + audioPulse);
     }
     pos.needsUpdate = true;
 
-    // Sun pulsation
+    // Sun pulsation strictly gated by shockMod
     if (sunRef.current) {
-      const sunScale = 1.0 + b.sub * 0.3 + shockMod * 0.4;
-      sunRef.current.scale.set(sunScale, sunScale, 1);
+      const sunScale = 1.0 + shockMod * 3.0;
+      sunRef.current.scale.lerp(new THREE.Vector3(sunScale, sunScale, 1), 0.2);
     }
   });
 

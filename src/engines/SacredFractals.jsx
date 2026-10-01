@@ -36,60 +36,56 @@ export default function SacredFractals({ layerState }) {
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
-    const b = audioStore.bands;
     const mod = layerState.modMatrix;
 
-    // Modulations
+    // Modulations (strictly from routing matrix)
     const revSpin = audioStore.getModValue(mod, 'reverse_spin');
     const fwdSpin = audioStore.getModValue(mod, 'vortex_spin');
-    const spinSpeed = (fwdSpin - revSpin) * 0.2 + (b.isActive ? 0.35 : 0.05);
+    
+    // Slow base spin, huge jump when routed
+    const spinSpeed = 0.05 + (fwdSpin - revSpin) * 5.0;
 
-    const shock = audioStore.getModValue(mod, 'shockwave') + b.kickOnset * 0.8;
+    const shock = audioStore.getModValue(mod, 'shockwave');
     const wave = audioStore.getModValue(mod, 'wave_current');
-    const colorCycle = audioStore.getModValue(mod, 'color_cycle');
-    const strobe = audioStore.getModValue(mod, 'film_strobe');
-
-    const subP = b.sub;
-    const lowP = b.low;
-    const midP = b.mid;
-    const highP = b.high;
 
     // Outer group rotation and wave tilt
     groupRef.current.rotation.z += spinSpeed * delta;
-    groupRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 1.5) * (0.15 + wave * 0.4);
-    groupRef.current.rotation.y = Math.cos(state.clock.elapsedTime * 1.2) * (0.15 + wave * 0.4);
+    groupRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 1.5) * (0.1 + wave * 2.0);
+    groupRef.current.rotation.y = Math.cos(state.clock.elapsedTime * 1.2) * (0.1 + wave * 2.0);
 
-    // Dynamic Pulsing Scale (Kick & Sub punch)
+    // Dynamic Pulsing Scale (Only reacts if shock is routed)
     const baseScale = layerState.params?.sacredScale || 1.0;
-    const pulseScale = baseScale * (1.0 + subP * 0.4 + shock * 0.5 + lowP * 0.2);
+    const pulseScale = baseScale * (1.0 + shock * 2.5);
     groupRef.current.scale.lerp(new THREE.Vector3(pulseScale, pulseScale, pulseScale), 0.2);
 
     // Inner Ring counter-rotation
     if (innerRingRef.current) {
-      innerRingRef.current.rotation.z -= (spinSpeed * 1.4 + midP * 0.5) * delta;
-      const innerScale = 1.0 + midP * 0.5 + wave * 0.3;
-      innerRingRef.current.scale.set(innerScale, innerScale, innerScale);
+      innerRingRef.current.rotation.z -= (spinSpeed * 1.5) * delta;
+      const innerScale = 1.0 + wave * 3.0;
+      innerRingRef.current.scale.lerp(new THREE.Vector3(innerScale, innerScale, innerScale), 0.2);
     }
 
     // Center Core sphere pulse
     if (centerCoreRef.current) {
-      const coreScale = 1.0 + subP * 1.2 + shock * 0.8;
+      const coreScale = 1.0 + shock * 4.0;
       centerCoreRef.current.scale.lerp(new THREE.Vector3(coreScale, coreScale, coreScale), 0.25);
     }
 
     // Outer Petals expansion
     if (outerPetalsRef.current) {
-      outerPetalsRef.current.rotation.z += (spinSpeed * 0.7 + highP * 0.3) * delta;
+      outerPetalsRef.current.rotation.z += (spinSpeed * 0.7) * delta;
     }
 
-    // Particle burst dynamics on kick drum
+    // Particle burst dynamics (only jumps on shock)
     if (particlesRef.current) {
       const positions = particlesRef.current.geometry.attributes.position.array;
       for (let i = 0; i < particleData.count; i++) {
         const idx = i * 3;
-        positions[idx] += particleData.velocities[idx] * (0.1 + shock * 0.6);
-        positions[idx + 1] += particleData.velocities[idx + 1] * (0.1 + shock * 0.6);
-        positions[idx + 2] += particleData.velocities[idx + 2] * 0.1;
+        
+        // Base drift + massive explosion if shock is routed
+        positions[idx] += particleData.velocities[idx] * (0.02 + shock * 2.0);
+        positions[idx + 1] += particleData.velocities[idx + 1] * (0.02 + shock * 2.0);
+        positions[idx + 2] += particleData.velocities[idx + 2] * 0.02;
 
         const dist = Math.sqrt(positions[idx] * positions[idx] + positions[idx + 1] * positions[idx + 1]);
         if (dist > 45) {

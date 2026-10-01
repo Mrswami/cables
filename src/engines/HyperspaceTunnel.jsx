@@ -49,15 +49,15 @@ export default function HyperspaceTunnel({ layerState }) {
     const b = audioStore.bands;
     const mod = layerState.modMatrix;
 
-    const warpMod = audioStore.getModValue(mod, 'warp_tunnel') + b.kickOnset * 1.5;
+    const warpMod = audioStore.getModValue(mod, 'warp_tunnel');
     const shockMod = audioStore.getModValue(mod, 'shockwave');
     const spinMod = audioStore.getModValue(mod, 'vortex_spin') - audioStore.getModValue(mod, 'reverse_spin');
 
     const baseSpeed = (layerState.params?.tunnelSpeed || 1.0) * 40;
-    const currentSpeed = baseSpeed + (warpMod * 80) + (b.low * 30);
+    const currentSpeed = baseSpeed + (warpMod * 250); // huge speed jump when warped
 
     // Group twist rotation
-    groupRef.current.rotation.z += (0.4 + spinMod * 0.5 + b.mid * 0.3) * delta;
+    groupRef.current.rotation.z += (0.1 + spinMod * 2.0) * delta;
 
     // Move children rings
     groupRef.current.children.forEach((child, i) => {
@@ -67,9 +67,9 @@ export default function HyperspaceTunnel({ layerState }) {
           child.position.z -= ringCount * 12;
         }
 
-        // Audio reactive expansion
-        const scale = 1.0 + (b.sub * 0.4) + (shockMod * 0.5) + (Math.sin(state.clock.elapsedTime * 4 + i) * 0.1);
-        child.scale.set(scale, scale, 1);
+        // Expansion strictly on shockMod
+        const scale = 1.0 + (shockMod * 3.5) + (Math.sin(state.clock.elapsedTime * 4 + i) * 0.05);
+        child.scale.lerp(new THREE.Vector3(scale, scale, 1), 0.2);
       }
     });
 

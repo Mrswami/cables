@@ -100,9 +100,25 @@ export default function App() {
     invoke('get_audio_devices')
       .then((devices) => {
         setIsTauriEnv(true);
-        setNativeDevices(devices);
-        if (devices.length > 0) {
-          setSelectedNativeDevice(devices[0]);
+        const deviceList = ['System Default', ...devices];
+        setNativeDevices(deviceList);
+        if (deviceList.length > 0) {
+          const savedDevice = localStorage.getItem('cables_audio_device');
+          let targetDevice = 'System Default';
+          
+          if (savedDevice && deviceList.includes(savedDevice)) {
+            targetDevice = savedDevice;
+          } else {
+            const realtekDevice = devices.find(d => d.toLowerCase().includes('realtek'));
+            if (realtekDevice) {
+              targetDevice = realtekDevice;
+            }
+          }
+          
+          setSelectedNativeDevice(targetDevice);
+          const invokeName = targetDevice === 'System Default' ? '' : targetDevice;
+          invoke('set_audio_device', { name: invokeName }).catch(err => console.error("Failed to set device", err));
+          localStorage.setItem('cables_audio_device', targetDevice);
         }
       })
       .catch((err) => console.log("Not in Tauri or failed to get audio devices", err));
@@ -111,7 +127,9 @@ export default function App() {
   const handleDeviceChange = (e) => {
     const val = e.target.value;
     setSelectedNativeDevice(val);
-    invoke('set_audio_device', { name: val }).catch(err => console.error("Failed to set device", err));
+    localStorage.setItem('cables_audio_device', val);
+    const invokeName = val === 'System Default' ? '' : val;
+    invoke('set_audio_device', { name: invokeName }).catch(err => console.error("Failed to set device", err));
   };
 
   // Live RMS Audio Levels for Strips
@@ -123,6 +141,14 @@ export default function App() {
   const [midGain, setMidGain] = useState(100);
   const [highGain, setHighGain] = useState(100);
   const [masterGain, setMasterGain] = useState(100);
+
+  // Dynamic Frequency Ranges for the 4 bands
+  const [freqRanges, setFreqRanges] = useState({
+    sub: [20, 65],
+    low: [65, 250],
+    mid: [250, 2500],
+    high: [2500, 16000]
+  });
 
   // Global DSP Analysis Parameters (audio-visualizer.com inspired)
   const [sensitivity, setSensitivity] = useState(1.0); // 0.1x to 3.0x input sensitivity
@@ -246,7 +272,8 @@ export default function App() {
       sensitivity, smoothing, fftDetail,
       modMatrix,
       params,
-      edgeLayerConfig
+      edgeLayerConfig,
+      freqRanges
     };
     const updated = [newPreset, ...userPresets];
     setUserPresets(updated);
@@ -271,6 +298,7 @@ export default function App() {
     if (preset.modMatrix) setModMatrix(preset.modMatrix);
     if (preset.params) setParams(preset.params);
     if (preset.edgeLayerConfig) setEdgeLayerConfig(preset.edgeLayerConfig);
+    if (preset.freqRanges) setFreqRanges(preset.freqRanges);
   };
 
   const deleteUserPreset = (id) => {
@@ -323,7 +351,8 @@ export default function App() {
               high: { target: 'none', amount: 180, gate: 10, intensity: 100 }
             },
             params: parsed.params || params,
-            edgeLayerConfig: parsed.edgeLayerConfig || edgeLayerConfig
+            edgeLayerConfig: parsed.edgeLayerConfig || edgeLayerConfig,
+            freqRanges: parsed.freqRanges || freqRanges
           };
           const updated = [imported, ...userPresets];
           setUserPresets(updated);
@@ -356,6 +385,7 @@ export default function App() {
     modMatrix,
     params,
     edgeLayerConfig,
+    freqRanges,
     time: 0,
     rot: 0,
     tunnelZ: 0
@@ -376,12 +406,13 @@ export default function App() {
     stateRef.current.modMatrix = modMatrix;
     stateRef.current.params = params;
     stateRef.current.edgeLayerConfig = edgeLayerConfig;
+    stateRef.current.freqRanges = freqRanges;
     
     // Sync to new AudioStore pipeline
     audioStore.updateConfig({
-      subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing
+      subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing, ranges: freqRanges
     });
-  }, [activeEngine, activePalette, subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing, fftDetail, modMatrix, params, edgeLayerConfig]);
+  }, [activeEngine, activePalette, subGain, lowGain, midGain, highGain, masterGain, sensitivity, smoothing, fftDetail, modMatrix, params, edgeLayerConfig, freqRanges]);
 
   // Request Screen WakeLock to prevent browser / display from sleeping
   const requestWakeLock = async () => {
@@ -884,7 +915,8 @@ export default function App() {
       </header>
 
       {/* --- MAIN VISUALIZER WORKSPACE --- */}
-      <main className="daw-main">
+      <div className="daw-body">
+        <main className="daw-main">
         <div className="viz-canvas" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
           {isRunning && (
             <VisualizerCanvas 
@@ -896,7 +928,14 @@ export default function App() {
         <canvas ref={canvasRef} className="viz-canvas" style={{ pointerEvents: 'none', display: 'none' }} />
 
         {/* Stable real-time FFT Spectralizer on bottom of screen */}
-        {isRunning && <SpectralizerBar modMatrix={modMatrix} levels={levels} />}
+        {isRunning && (
+          <SpectralizerBar 
+            modMatrix={modMatrix} 
+            levels={levels} 
+            freqRanges={freqRanges} 
+            setFreqRanges={setFreqRanges} 
+          />
+        )}
 
         {/* STANDBY / IDLE ONBOARDING SCREEN */}
         {!isRunning && (
@@ -987,59 +1026,17 @@ export default function App() {
         )}
       </main>
 
-      {/* --- ABLETON / SERATO DOCKABLE DEVICE RACK --- */}
-      <footer className="daw-rack">
-
-        {/* RACK TABS */}
-        <div className="rack-header">
-          <div className="rack-tabs">
-            <button
-              className={`rack-tab ${activeTab === 'matrix' ? 'active' : ''}`}
-              onClick={() => setActiveTab('matrix')}
-            >
-              <Icons.Matrix /> Modulation Matrix (EQ → Visual FX)
-            </button>
-            <button
-              className={`rack-tab ${activeTab === 'engine' ? 'active' : ''}`}
-              onClick={() => setActiveTab('engine')}
-            >
-              <Icons.Sliders /> Engine Parameters
-            </button>
-            <button
-              className={`rack-tab ${activeTab === 'palette' ? 'active' : ''}`}
-              onClick={() => setActiveTab('palette')}
-            >
-              <Icons.Palette /> Color Harmonics
-            </button>
-            <button
-              className={`rack-tab ${activeTab === 'postfx' ? 'active' : ''}`}
-              onClick={() => setActiveTab('postfx')}
-            >
-              <Icons.Fx /> Post-Processing & Specterr FX
-            </button>
-            <button
-              className={`rack-tab ${activeTab === 'layout' ? 'active' : ''}`}
-              onClick={() => setActiveTab('layout')}
-            >
-              <Icons.Expand /> Layout & Workspace
-            </button>
-            <button
-              className={`rack-tab ${activeTab === 'layers' ? 'active' : ''}`}
-              onClick={() => setActiveTab('layers')}
-            >
-              <Icons.Wireframe /> Multi-Layer Edge Compositor
-            </button>
-            <button
-              className={`rack-tab ${activeTab === 'presets' ? 'active' : ''}`}
-              onClick={() => setActiveTab('presets')}
-            >
-              <Icons.Sparkles /> User Presets ({userPresets.length})
-            </button>
-          </div>
-          <span className="rack-info">Ableton Live FX Rack v2.0 · Background Audio Lock</span>
+      <aside className="daw-sidebar">
+        <div className="sidebar-nav">
+          <button className={`sidebar-tab ${activeTab === 'matrix' ? 'active' : ''}`} onClick={() => setActiveTab('matrix')}><Icons.Matrix /> Modulation Matrix</button>
+          <button className={`sidebar-tab ${activeTab === 'engine' ? 'active' : ''}`} onClick={() => setActiveTab('engine')}><Icons.Sliders /> Engine Parameters</button>
+          <button className={`sidebar-tab ${activeTab === 'palette' ? 'active' : ''}`} onClick={() => setActiveTab('palette')}><Icons.Palette /> Color Harmonics</button>
+          <button className={`sidebar-tab ${activeTab === 'postfx' ? 'active' : ''}`} onClick={() => setActiveTab('postfx')}><Icons.Fx /> Post-Processing</button>
+          <button className={`sidebar-tab ${activeTab === 'layout' ? 'active' : ''}`} onClick={() => setActiveTab('layout')}><Icons.Expand /> Workspace Layout</button>
+          <button className={`sidebar-tab ${activeTab === 'layers' ? 'active' : ''}`} onClick={() => setActiveTab('layers')}><Icons.Wireframe /> Layer Compositor</button>
+          <button className={`sidebar-tab ${activeTab === 'presets' ? 'active' : ''}`} onClick={() => setActiveTab('presets')}><Icons.Sparkles /> User Presets</button>
         </div>
-
-        <div className="rack-content">
+        <div className="sidebar-content">
 
           {/* TAB 1: MODULATION MATRIX ROUTING */}
           {activeTab === 'matrix' && (
@@ -2173,8 +2170,8 @@ export default function App() {
           )}
 
         </div>
-      </footer>
-
+      </aside>
+      </div>
     </div>
   );
 }

@@ -42,18 +42,99 @@ body {
 
 /* --- MAIN DAW LAYOUT --- */
 .daw-layout {
-  display: grid;
-  grid-template-rows: 52px 1fr 275px;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
   background: var(--bg-dark);
 }
 
-.daw-layout.fullscreen-mode {
-  grid-template-rows: 0px 1fr 0px;
+.daw-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
 }
+
+.daw-sidebar {
+  width: 360px;
+  background: rgba(17, 17, 21, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  order: -1;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.sidebar-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  font-family: var(--font-main);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+.sidebar-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+}
+.sidebar-tab.active {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.1);
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.glass-card h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
 .daw-layout.fullscreen-mode .daw-topbar,
-.daw-layout.fullscreen-mode .daw-rack {
+.daw-layout.fullscreen-mode .daw-sidebar {
   display: none;
 }
 
@@ -295,6 +376,7 @@ body {
 
 /* --- MAIN CANVAS VIEW --- */
 .daw-main {
+  flex: 1;
   position: relative;
   overflow: hidden;
   background: var(--bg-dark);
@@ -504,20 +586,19 @@ body {
 /* TAB 1: MODULATION MATRIX GRID */
 .rack-device-grid {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 16px;
   width: 100%;
-  height: 100%;
 }
 
 .device-channel {
-  flex: 1 1 0;
-  min-width: 0;
-  background: var(--bg-dark);
+  background: var(--bg-panel-light);
   border: 1px solid var(--border-light);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .device-channel.master-channel {

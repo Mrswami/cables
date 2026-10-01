@@ -26,15 +26,14 @@ export default function GlitchMatrix({ layerState }) {
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
-    const b = audioStore.bands;
     const mod = layerState.modMatrix;
     const freq = audioStore.freqData;
 
-    const shock = audioStore.getModValue(mod, 'shockwave') + b.kickOnset * 1.5;
-    const strobe = audioStore.getModValue(mod, 'film_strobe') + b.snareOnset * 1.0;
-    const speed = (layerState.params?.speed || 1.0) * 2;
-
-    groupRef.current.rotation.y += (0.15 + b.mid * 0.2) * delta;
+    const shock = audioStore.getModValue(mod, 'shockwave');
+    const strobe = audioStore.getModValue(mod, 'film_strobe');
+    
+    // Slow idle rotation, massive spin on shock
+    groupRef.current.rotation.y += (0.1 + shock * 2.0) * delta;
 
     groupRef.current.children.forEach((cube, i) => {
       if (cube.isMesh && columns[i]) {
@@ -42,12 +41,13 @@ export default function GlitchMatrix({ layerState }) {
         const freqIdx = Math.min(1023, Math.floor((i / count) * 400));
         const freqVal = freq ? (freq[freqIdx] || 0) / 255 : 0;
 
-        const targetHeight = col.baseH + freqVal * (25 + b.sub * 20 + shock * 15);
+        // Base height is idle. Huge vertical jump only when shock is routed
+        const targetHeight = col.baseH + freqVal * (shock * 50.0);
         cube.scale.y = THREE.MathUtils.lerp(cube.scale.y, targetHeight, 0.25);
 
-        // Glitch jitter on snare/hihat
-        if (strobe > 0.3) {
-          cube.position.x = col.x + (Math.random() - 0.5) * 0.8;
+        // Glitch jitter strictly on strobe
+        if (strobe > 0.05) {
+          cube.position.x = col.x + (Math.random() - 0.5) * (strobe * 3.0);
         } else {
           cube.position.x = col.x;
         }

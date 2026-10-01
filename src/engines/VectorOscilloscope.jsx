@@ -37,8 +37,11 @@ export default function VectorOscilloscope({ layerState }) {
   }, [pointCount]);
 
   useFrame((state, delta) => {
-    const b = audioStore.bands;
+    const mod = layerState.modMatrix;
     const wave = audioStore.waveData;
+
+    const waveMod = audioStore.getModValue(mod, 'wave_current');
+    const shockMod = audioStore.getModValue(mod, 'shockwave');
 
     // Update horizontal oscilloscope line with raw waveform
     if (lineRef.current && wave && wave.length > 0) {
@@ -47,7 +50,8 @@ export default function VectorOscilloscope({ layerState }) {
       for (let i = 0; i < pointCount; i++) {
         const byteVal = wave[i * step] || 128;
         const norm = (byteVal - 128) / 128; // -1 to 1
-        positions[i * 3 + 1] = norm * (12 + b.sub * 10);
+        // Only show waveform amplitude if waveMod is active
+        positions[i * 3 + 1] = norm * (waveMod * 30.0);
       }
       lineRef.current.geometry.attributes.position.needsUpdate = true;
       lineRef.current.rotation.z += 0.2 * delta;
@@ -61,10 +65,11 @@ export default function VectorOscilloscope({ layerState }) {
         const angle = (i / pointCount) * Math.PI * 2;
         const byteVal = wave[i * step] || 128;
         const norm = (byteVal - 128) / 128;
-        const radius = 16 + norm * (8 + b.low * 12);
+        // Ring distortion only on shockMod
+        const radius = 16 + norm * (shockMod * 40.0);
         positions[i * 3] = Math.cos(angle) * radius;
         positions[i * 3 + 1] = Math.sin(angle) * radius;
-        positions[i * 3 + 2] = Math.sin(angle * 4 + state.clock.elapsedTime * 3) * 2;
+        positions[i * 3 + 2] = Math.sin(angle * 4 + state.clock.elapsedTime * 3) * (shockMod * 5.0);
       }
       ringRef.current.geometry.attributes.position.needsUpdate = true;
       ringRef.current.rotation.z -= 0.4 * delta;
