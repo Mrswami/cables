@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import VisualizerCanvas from './VisualizerCanvas';
 import SpectralizerBar from './SpectralizerBar';
+import GenerativeShotOverlay, { fireGenerativeShot } from './GenerativeShotOverlay';
 import { audioStore } from './AudioStore';
 import './index.css';
 
@@ -46,6 +47,7 @@ const PALETTES = [
 ];
 
 // --- MODULATION MATRIX TARGETS (DISTINCT VISUAL PATTERNS) ---
+// generative: true => triggers a one-shot centered shape overlay, fades out; does NOT drive continuous 3D engine animation
 const MOD_TARGETS = [
   { id: 'none', name: '-- Blank (No FX Route) --' },
   { id: 'reverse_spin', name: 'Spin Direction: Reverse (Counter-Clockwise)' },
@@ -53,17 +55,19 @@ const MOD_TARGETS = [
   { id: 'shockwave', name: 'Radial Shockwave & Pulse Explosion' },
   { id: 'wave_current', name: 'Sinusoidal Wave & Fluid Undulation' },
   { id: 'warp_tunnel', name: '3D Warp Thrust & Tunnel Speed' },
-  { id: 'kaleido_facets', name: 'Kaleidoscope Facets & Mirror Symmetry' },
-  { id: 'laser_beams', name: 'Starburst Laser Streaks & Filament Lightning' },
-  { id: 'particle_shape_morph', name: 'Particle Shape Morph & Geometry Trigger' },
   { id: 'particle_size', name: 'Particle 3D Size & Scale Dynamics' },
   { id: 'particle_speed', name: 'Particle Swirl & Orbit Speed' },
   { id: 'particle_mass', name: 'Particle Mass & Force Field Pull' },
   { id: 'particle_turbulence', name: 'Particle Noise & Jitter Chaos' },
-  { id: 'color_cycle', name: 'Chromatic Hue Cycle & Color Jump' },
-  { id: 'film_strobe', name: 'Film Strobe & Glow Bloom' },
-  { id: 'geo_burst', name: 'Generative Geometric Burst' },
-  { id: 'digital_grid', name: 'Generative Hologram Grid Overlay' }
+  // --- GENERATIVE ONE-SHOT OVERLAYS (gate open fires a shape; must close+reopen to fire again) ---
+  { id: 'geo_burst', name: '✦ [SHOT] Hexagon Geo Burst', generative: true },
+  { id: 'kaleido_facets', name: '✦ [SHOT] Mandala Kaleidoscope Burst', generative: true },
+  { id: 'laser_beams', name: '✦ [SHOT] Starburst Laser Ray Explosion', generative: true },
+  { id: 'digital_grid', name: '✦ [SHOT] Hologram Grid Flash', generative: true },
+  { id: 'film_strobe', name: '✦ [SHOT] Concentric Ring Flash', generative: true },
+  { id: 'color_cycle', name: '✦ [SHOT] Triangle Color Burst', generative: true },
+  { id: 'particle_shape_morph', name: '✦ [SHOT] Morphing Star Stamp', generative: true },
+  { id: 'ink_splash', name: '✦ [SHOT] Ink Splash / Organic Burst', generative: true },
 ];
 
 export default function App() {
@@ -544,6 +548,31 @@ export default function App() {
             rawHigh: b.rawHigh ?? 0,
             peak: b.peak ?? 0
           });
+
+          // Fire generative one-shot overlays based on modMatrix routing
+          const mm = stateRef.current.modMatrix;
+          const palette = stateRef.current.activePalette;
+          const paletteObj = [
+            { id: 'cyberpunk', colors: ['#ff007f', '#00f0ff', '#7928ca', '#ffe600'] },
+            { id: 'electric', colors: ['#00ffcc', '#3b82f6', '#8b5cf6', '#ec4899'] },
+            { id: 'solar', colors: ['#ff4d00', '#ff9900', '#ffcc00', '#ff0055'] },
+            { id: 'deepsea', colors: ['#00ffff', '#0077ff', '#00ff88', '#2e0854'] },
+            { id: 'acid', colors: ['#39ff14', '#00ff66', '#a6ff00', '#ffffff'] },
+            { id: 'vaporwave', colors: ['#ff71ce', '#01cdfe', '#05ffa1', '#b967ff'] }
+          ].find(p => p.id === palette);
+          const colors = paletteObj?.colors || ['#00f0ff', '#ff007f', '#7928ca', '#ffe600'];
+
+          if (mm) {
+            const bands = ['sub', 'low', 'mid', 'high'];
+            bands.forEach((bandKey, i) => {
+              const route = mm[bandKey];
+              if (!route || route.target === 'none') return;
+              const energy = b[`raw${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`] ?? 0;
+              const gate = (route.gate ?? 0) / 100;
+              const color = colors[i % colors.length];
+              fireGenerativeShot(route.target, bandKey, energy, gate, color);
+            });
+          }
         }
       }
     };
@@ -926,6 +955,9 @@ export default function App() {
           )}
         </div>
         <canvas ref={canvasRef} className="viz-canvas" style={{ pointerEvents: 'none', display: 'none' }} />
+
+        {/* Generative One-Shot Shape Overlay */}
+        <GenerativeShotOverlay isRunning={isRunning} />
 
         {/* Stable real-time FFT Spectralizer on bottom of screen */}
         {isRunning && (
